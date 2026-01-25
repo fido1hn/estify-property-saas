@@ -1,0 +1,7 @@
+{
+  "name": "Estify Property SaaS",
+  "description": "Enterprise-grade property management software featuring automated rent collection, AI-powered maintenance, and deep analytics for modern real estate professionals.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
