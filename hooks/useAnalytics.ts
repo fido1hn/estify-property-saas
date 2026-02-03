@@ -1,6 +1,15 @@
 
 import { useQuery } from "@tanstack/react-query";
-import { getSummaryMetrics, getMonthlyRevenue, getOccupancyTrend, getRevenueDistribution } from "../services/apiAnalytics";
+import { getSummaryMetrics, getMonthlyRevenue, getOccupancyTrend, getRevenueDistribution, getFeaturedProperty } from "../services/apiAnalytics";
+
+export function useFeaturedProperty() {
+  const { isPending, data: property, error } = useQuery({
+    queryKey: ["featuredProperty"],
+    queryFn: getFeaturedProperty,
+  });
+
+  return { isPending, error, property };
+}
 
 export function useSummaryMetrics() {
   const { isPending, data: metrics, error } = useQuery({

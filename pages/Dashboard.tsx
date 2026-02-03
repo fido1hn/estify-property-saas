@@ -7,7 +7,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { TrendingUp, Users, Building, AlertCircle, ArrowUpRight, X } from 'lucide-react';
-import { useSummaryMetrics, useMonthlyRevenue } from '../hooks/useAnalytics';
+import { useSummaryMetrics, useMonthlyRevenue, useFeaturedProperty } from '../hooks/useAnalytics';
 import { useCreateProperty } from '../hooks/useProperties';
 
 interface DashboardProps {
@@ -18,6 +18,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
   const navigate = useNavigate();
   const { metrics, isPending: isMetricsLoading } = useSummaryMetrics();
   const { revenueData = [], isPending: isRevenueLoading } = useMonthlyRevenue();
+  const { property: featuredProperty, isPending: isPropertyLoading } = useFeaturedProperty();
   const { createProperty } = useCreateProperty();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,7 +54,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     });
   };
 
-  if (isMetricsLoading || isRevenueLoading) return null;
+  if (isMetricsLoading || isRevenueLoading || isPropertyLoading) return null;
+
+  const maintenanceCounts = metrics?.maintenanceCounts || { open: 0, in_progress: 0, resolved: 0, total: 0 };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -116,35 +119,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
 
         <div className="space-y-6 md:space-y-8">
           <div 
-            onClick={() => navigate('/properties/1')}
+            onClick={() => navigate(featuredProperty ? `/properties/${featuredProperty.id}` : '/properties')}
             className="bg-orange-500 text-white p-6 rounded-3xl relative overflow-hidden group cursor-pointer"
           >
              <div className="relative z-10 h-full flex flex-col justify-between min-h-[180px] md:min-h-[220px]">
                 <div>
                   <h4 className="text-orange-200 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-2">Featured Property</h4>
-                  <h3 className="text-xl md:text-2xl font-bold leading-tight">Skyline<br/>Residence</h3>
+                  <h3 className="text-xl md:text-2xl font-bold leading-tight">{featuredProperty?.name || 'No Properties'}</h3>
                 </div>
-                <div className="flex gap-6 md:gap-8">
-                  <div>
-                    <p className="text-orange-100 text-[10px] mb-1">Total Units</p>
-                    <p className="text-lg md:text-xl font-bold">48</p>
-                  </div>
-                  <div>
-                    <p className="text-orange-100 text-[10px] mb-1">Occupancy</p>
-                    <p className="text-lg md:text-xl font-bold">92%</p>
-                  </div>
-                </div>
+                {featuredProperty && (
+                   <div className="flex gap-6 md:gap-8">
+                     <div>
+                       <p className="text-orange-100 text-[10px] mb-1">Total Units</p>
+                       <p className="text-lg md:text-xl font-bold">{featuredProperty.total_units || 0}</p>
+                     </div>
+                     <div>
+                       <p className="text-orange-100 text-[10px] mb-1">Occupancy</p>
+                       <p className="text-lg md:text-xl font-bold">{featuredProperty.occupancy || 0}%</p>
+                     </div>
+                   </div>
+                )}
                 <ArrowUpRight className="absolute top-0 right-0 m-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
              </div>
-             <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80" className="absolute top-0 left-0 w-full h-full object-cover opacity-20 pointer-events-none" />
+             <img src={featuredProperty?.image_url || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80"} className="absolute top-0 left-0 w-full h-full object-cover opacity-20 pointer-events-none" />
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-6 text-sm md:text-base">Property Conditions</h3>
             <div className="space-y-6">
-              <ConditionProgress label="On repairment progress" value={26} total={50} color="bg-orange-500" />
-              <ConditionProgress label="Awaiting for repairment" value={14} total={50} color="bg-orange-200" />
-              <ConditionProgress label="On request" value={9} total={50} color="bg-black" />
+              <ConditionProgress label="On repairment progress" value={maintenanceCounts.in_progress} total={maintenanceCounts.total || 1} color="bg-orange-500" />
+              <ConditionProgress label="Awaiting for repairment" value={maintenanceCounts.open} total={maintenanceCounts.total || 1} color="bg-orange-200" />
+              <ConditionProgress label="Resolved" value={maintenanceCounts.resolved} total={maintenanceCounts.total || 1} color="bg-black" />
             </div>
             <button 
               onClick={() => navigate('/maintenance')}

@@ -37,15 +37,59 @@ export async function getSummaryMetrics() {
     const avgRent = "$1,250";
     const maintenanceCost = "$4,200";
 
+    // Maintenance stats
+    const { data: maintenanceStats } = await supabase.from('maintenance_requests').select('status');
+    const maintenanceCounts = {
+        open: maintenanceStats?.filter(r => r.status === 'open').length || 0,
+        in_progress: maintenanceStats?.filter(r => r.status === 'in_progress').length || 0,
+        resolved: maintenanceStats?.filter(r => r.status === 'resolved').length || 0,
+        total: maintenanceStats?.length || 0
+    };
+
     return {
         activeProperties: activeProperties || 0,
-        newLeads: newTenants || 0, // treating new tenants as proxy for leads success
+        newLeads: newTenants || 0, 
         totalSales,
         overdueRent,
         netYield,
         churnRate,
         avgRent,
-        maintenanceCost
+        maintenanceCost,
+        maintenanceCounts
+    };
+}
+
+export async function getFeaturedProperty() {
+    // We get the first property and try to get its occupancy
+    const { data: properties, error } = await supabase
+        .from('properties')
+        .select(`
+            *,
+            units (id)
+        `)
+        .limit(1);
+    
+    if (error || !properties || properties.length === 0) return null;
+    
+    const prop = properties[0];
+    const unitIds = prop.units?.map((u: any) => u.id) || [];
+    
+    let occupiedUnits = 0;
+    if (unitIds.length > 0) {
+        const { count } = await supabase
+            .from('tenants')
+            .select('*', { count: 'exact', head: true })
+            .in('unit_id', unitIds)
+            .eq('status', 'active');
+        occupiedUnits = count || 0;
+    }
+    
+    const totalUnits = prop.total_units || unitIds.length || 0;
+    const occupancy = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+    
+    return {
+        ...prop,
+        occupancy
     };
 }
 
