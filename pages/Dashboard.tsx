@@ -7,7 +7,8 @@ import {
   AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { TrendingUp, Users, Building, AlertCircle, ArrowUpRight, X } from 'lucide-react';
-import { db } from '../services/dbService';
+import { useSummaryMetrics, useMonthlyRevenue } from '../hooks/useAnalytics';
+import { useCreateProperty } from '../hooks/useProperties';
 
 interface DashboardProps {
   role: UserRole;
@@ -15,10 +16,11 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
   const navigate = useNavigate();
+  const { metrics, isPending: isMetricsLoading } = useSummaryMetrics();
+  const { revenueData = [], isPending: isRevenueLoading } = useMonthlyRevenue();
+  const { createProperty } = useCreateProperty();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,42 +31,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ role }) => {
     image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80'
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      const [met, rev] = await Promise.all([
-        db.analytics.getSummaryMetrics(),
-        db.analytics.getMonthlyRevenue()
-      ]);
-      setMetrics(met);
-      setRevenueData(rev);
-      setLoading(false);
-    };
-    loadData();
-  }, []);
-
   const handleExport = () => {
     alert('Generating financial report... The download will start shortly.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await db.properties.create(formData);
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      address: '',
-      type: 'Residential',
-      units: 0,
-      occupancy: 0,
-      image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80'
+    createProperty(formData, {
+        onSuccess: () => {
+            setIsModalOpen(false);
+            setFormData({
+                name: '',
+                address: '',
+                type: 'Residential',
+                units: 0,
+                occupancy: 0,
+                image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80'
+            });
+            alert('Property added successfully to the database!');
+        }
     });
-    alert('Property added successfully to the database!');
-    // Refresh metrics
-    const met = await db.analytics.getSummaryMetrics();
-    setMetrics(met);
   };
 
-  if (loading) return null;
+  if (isMetricsLoading || isRevenueLoading) return null;
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

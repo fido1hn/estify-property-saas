@@ -12,7 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { summarizeMaintenanceRequest } from "../services/geminiService";
-import { db } from "../services/dbService";
+import { useMaintenance, useCreateMaintenance, useUpdateMaintenance, useDeleteMaintenance } from "../hooks/useMaintenance";
 import { DeleteConfirmationModal } from "../components/DeleteConfirmationModal";
 
 interface MaintenanceProps {
@@ -21,7 +21,11 @@ interface MaintenanceProps {
 
 export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
   const navigate = useNavigate();
-  const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
+  const { maintenanceRequests: requests = [], isPending: isRequestsLoading } = useMaintenance();
+  const { createMaintenance } = useCreateMaintenance();
+  const { updateMaintenance } = useUpdateMaintenance();
+  const { deleteMaintenance } = useDeleteMaintenance();
+
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [newRequestDesc, setNewRequestDesc] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -33,18 +37,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
     title: "",
     description: "",
     unit: "",
-    priority: "Medium" as any,
-    status: "Pending" as any,
+    priority: "medium" as any,
+    status: "open" as any,
   });
-
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
-  const loadRequests = async () => {
-    const data = await db.maintenance.list();
-    setRequests(data);
-  };
 
   // const handleAiAnalyze = async () => {
   //   if (!newRequestDesc) return;
@@ -63,11 +58,13 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await db.maintenance.create(formData);
-    setIsModalOpen(false);
-    setNewRequestDesc("");
-    setAiAnalysis(null);
-    loadRequests();
+    createMaintenance(formData, {
+        onSuccess: () => {
+            setIsModalOpen(false);
+            setNewRequestDesc("");
+            setAiAnalysis(null);
+        }
+    });
   };
 
   const handleUpdateStatus = async (
@@ -76,8 +73,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
     status: any,
   ) => {
     e.stopPropagation();
-    await db.maintenance.update(id, { status });
-    loadRequests();
+    updateMaintenance({ id, updates: { status } });
   };
 
   const confirmDelete = (e: React.MouseEvent, id: string) => {
@@ -88,12 +84,16 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await db.maintenance.delete(itemToDelete);
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
-      loadRequests();
+      deleteMaintenance(itemToDelete, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }
+      });
     }
   };
+
+  if (isRequestsLoading) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -149,9 +149,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
               <div className="flex justify-between items-start mb-4">
                 <span
                   className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    req.status === "Pending"
+                    req.status === "open"
                       ? "bg-orange-50 text-orange-600"
-                      : req.status === "In Progress"
+                      : req.status === "in_progress"
                         ? "bg-blue-50 text-blue-600"
                         : "bg-green-50 text-green-600"
                   }`}>
@@ -160,9 +160,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
                 <div className="flex gap-2">
                   <span
                     className={`text-[10px] font-bold uppercase tracking-widest ${
-                      req.priority === "High"
+                      req.priority === "high" || req.priority === "urgent"
                         ? "text-red-500"
-                        : req.priority === "Medium"
+                        : req.priority === "medium"
                           ? "text-orange-500"
                           : "text-gray-400"
                     }`}>
@@ -185,24 +185,24 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
 
             <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                  {req.unit}
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600 truncate px-1">
+                  {req.unit_id.slice(0, 8)}
                 </div>
-                <span className="text-xs text-gray-400">{req.createdAt}</span>
+                <span className="text-[10px] text-gray-400">{new Date(req.created_at).toLocaleDateString()}</span>
               </div>
               <div className="flex gap-2">
-                {req.status === "Pending" && (
+                {req.status === "open" && (
                   <button
                     onClick={(e) =>
-                      handleUpdateStatus(e, req.id, "In Progress")
+                      handleUpdateStatus(e, req.id, "in_progress")
                     }
                     className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
                     Start
                   </button>
                 )}
-                {req.status === "In Progress" && (
+                {req.status === "in_progress" && (
                   <button
-                    onClick={(e) => handleUpdateStatus(e, req.id, "Completed")}
+                    onClick={(e) => handleUpdateStatus(e, req.id, "resolved")}
                     className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors">
                     Finish
                   </button>
@@ -270,9 +270,10 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
                         priority: e.target.value as any,
                       })
                     }>
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -288,9 +289,10 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
                         status: e.target.value as any,
                       })
                     }>
-                    <option>Pending</option>
-                    <option>In Progress</option>
-                    <option>Completed</option>
+                    <option value="open">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
                   </select>
                 </div>
               </div>

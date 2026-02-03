@@ -2,83 +2,54 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Send, MoreHorizontal, Phone, Video, Paperclip, Smile, ChevronLeft } from 'lucide-react';
-import { db } from '../services/dbService';
+import { useContacts, useChatHistory, useSendMessage } from '../hooks/useMessages';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Messages: React.FC = () => {
   const { user } = useAuth();
-  const [contacts, setContacts] = useState<any[]>([]);
-  const [selectedContact, setSelectedContact] = useState<any>(null);
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const { contacts = [], isPending: isContactsLoading } = useContacts();
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const { history = [], isPending: isChatLoading } = useChatHistory(selectedContactId);
+  const { send } = useSendMessage();
+
   const [showContactList, setShowContactList] = useState(true);
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+
+  const selectedContact = contacts.find(c => c.id === selectedContactId) || contacts[0];
 
   useEffect(() => {
-    loadContacts();
-  }, []);
+     if (contacts.length > 0 && !selectedContactId) {
+        setSelectedContactId(contacts[0].id);
+     }
+  }, [contacts]);
 
-  useEffect(() => {
-    if (selectedContact) {
-      loadChatHistory(selectedContact.id);
-    }
-  }, [selectedContact]);
-
-  const loadContacts = async () => {
-    const data = await db.messages.getContacts();
-    setContacts(data);
-    if (data.length > 0 && !selectedContact) {
-      setSelectedContact(data[0]);
-    }
-    setLoading(false);
-  };
-
-  const loadChatHistory = async (id: string) => {
-    const history = await db.messages.getChatHistory(id);
-    const mappedHistory = history.map((msg: any) => ({
-      id: msg.id,
-      text: msg.content,
-      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMine: msg.sender_id === user?.id
-    }));
-    setChatHistory(mappedHistory);
-  };
+  const chatHistory = history.map((msg: any) => ({
+    id: msg.id,
+    text: msg.content,
+    time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    isMine: msg.sender_id === user?.id
+  }));
 
   const handleContactSelect = (contact: any) => {
-    setSelectedContact(contact);
+    setSelectedContactId(contact.id);
     if (window.innerWidth < 1024) {
       setShowContactList(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !selectedContact) return;
+    if (!message.trim() || !selectedContactId) return;
 
-    // We need to ensure we are sending as the current user. dbService needs to handle it or we pass it.
-    // dbService.messages.sendMessage takes receiverId and content. It assumes sender is current auth user 
-    // but in dbService we mocked it.
-    // However, since we bypassed RLS in seed-db but here we are in frontend, 
-    // supabase client automatically attaches auth token. 
-    // But dbService sendMessage implementation might need a check.
-    // Let's assume dbService uses supabase.auth.getUser() or similar implicitly via RLS if setup, 
-    // OR we should pass senderID if we want to be explicit, but usually supabase infers from session.
-    // Wait, dbService.ts implementation:
-    // const { data: profiles } = await supabase.from('profiles').select('id').limit(1); 
-    // const currentUserId = profiles?.[0]?.id ...
-    // This was the MOCK implementation.
-    // I need to fix dbService.ts sendMessage to use the real user.
-    // But for now, let's just update the frontend component.
-    
-    await db.messages.sendMessage(selectedContact.id, message);
-    setMessage('');
-    await loadChatHistory(selectedContact.id);
+    send({ receiverId: selectedContactId, content: message }, {
+        onSuccess: () => setMessage('')
+    });
   };
 
   const handleAction = (type: string) => {
     alert(`${type} feature is currently in development for this demo.`);
   };
 
-  if (loading || !selectedContact) return (
+  if (isContactsLoading || !selectedContact) return (
     <div className="flex items-center justify-center h-full text-gray-400">
       Loading messages...
     </div>

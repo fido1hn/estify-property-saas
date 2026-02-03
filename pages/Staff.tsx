@@ -3,13 +3,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Staff as StaffType, StaffRole, Property } from '../types';
 import { Search, Plus, Filter, Mail, Phone, X, Trash2, Edit2, ShieldCheck } from 'lucide-react';
-import { db } from '../services/dbService';
+import { useStaff, useCreateStaff, useEditStaff, useDeleteStaff } from '../hooks/useStaff';
+import { useProperties } from '../hooks/useProperties';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const Staff: React.FC = () => {
   const navigate = useNavigate();
-  const [staffList, setStaffList] = useState<StaffType[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { staff: staffList = [], isPending: isStaffLoading } = useStaff();
+  const { properties = [], isPending: isPropertiesLoading } = useProperties();
+  
+  const { createStf } = useCreateStaff();
+  const { editStf } = useEditStaff();
+  const { deleteStf } = useDeleteStaff();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -20,30 +26,20 @@ export const Staff: React.FC = () => {
     name: '',
     email: '',
     phone: '',
-    role: StaffRole.SECURITY,
+    role: 'security' as StaffRole,
     assignedPropertyIds: [] as string[],
-    status: 'Active' as any
+    status: 'active' as any
   });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    const [sData, pData] = await Promise.all([db.staff.list(), db.properties.list()]);
-    setStaffList(sData);
-    setProperties(pData);
-  };
 
   const handleOpenModal = (staff?: StaffType) => {
     if (staff) {
       setEditingStaff(staff);
       setFormData({
-        name: staff.name,
-        email: staff.email,
-        phone: staff.phone,
-        role: staff.role,
-        assignedPropertyIds: staff.assignedPropertyIds,
+        name: staff.profiles?.full_name || '',
+        email: staff.profiles?.email || '',
+        phone: staff.phone_number, // DB field name
+        role: staff.role, 
+        assignedPropertyIds: [], // TODO: Assignments not in basic staff type yet
         status: staff.status
       });
     } else {
@@ -52,9 +48,9 @@ export const Staff: React.FC = () => {
         name: '',
         email: '',
         phone: '',
-        role: StaffRole.SECURITY,
+        role: 'security',
         assignedPropertyIds: [],
-        status: 'Active'
+        status: 'active'
       });
     }
     setIsModalOpen(true);
@@ -63,12 +59,21 @@ export const Staff: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingStaff) {
-      await db.staff.update(editingStaff.id, formData);
+      editStf({
+        id: editingStaff.user_id,
+        updates: {
+          phone_number: formData.phone,
+          role: formData.role,
+          status: formData.status
+        }
+      }, {
+        onSuccess: () => setIsModalOpen(false)
+      });
     } else {
-      await db.staff.create(formData);
+      createStf(formData, {
+        onSuccess: () => setIsModalOpen(false)
+      });
     }
-    setIsModalOpen(false);
-    loadData();
   };
 
   const confirmDelete = (e: React.MouseEvent, id: string) => {
@@ -79,15 +84,19 @@ export const Staff: React.FC = () => {
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await db.staff.delete(itemToDelete);
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
-      loadData();
+      deleteStf(itemToDelete, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }
+      });
     }
   };
 
+  if (isStaffLoading) return null;
+
   const filteredStaff = staffList.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (s.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -135,37 +144,33 @@ export const Staff: React.FC = () => {
             <tbody className="divide-y divide-gray-50">
               {filteredStaff.map((staff) => (
                 <tr 
-                  key={staff.id} 
-                  onClick={() => navigate(`/staff/${staff.id}`)}
+                  key={staff.user_id} 
+                  onClick={() => navigate(`/staff/${staff.user_id}`)}
                   className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                 >
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                      <img src={staff.avatar || `https://picsum.photos/seed/${staff.id}/100`} className="w-10 h-10 rounded-xl object-cover" alt={staff.name} />
+                      <img src={staff.profiles?.avatar_url || `https://picsum.photos/seed/${staff.user_id}/100`} className="w-10 h-10 rounded-xl object-cover" alt={staff.profiles?.full_name} />
                       <div>
-                        <p className="font-bold text-gray-900">{staff.name}</p>
-                        <p className="text-xs text-gray-500">{staff.email}</p>
+                        <p className="font-bold text-gray-900">{staff.profiles?.full_name}</p>
+                        <p className="text-xs text-gray-500">{staff.profiles?.email}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
                        <div className="p-1.5 bg-gray-100 rounded-lg text-gray-600"><ShieldCheck size={14}/></div>
-                       <span className="text-sm font-medium text-gray-900">{staff.role}</span>
+                       <span className="text-sm font-medium text-gray-900 capitalize">{staff.role}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex -space-x-2">
-                      {staff.assignedPropertyIds.map(pid => (
-                        <div key={pid} className="w-8 h-8 rounded-full border-2 border-white bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-600">
-                          {properties.find(p => p.id === pid)?.name.charAt(0) || 'P'}
-                        </div>
-                      ))}
+                      {/* Assignments logic missing in DB Staff type, leaving empty/mock */}
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      staff.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
+                      staff.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
                     }`}>
                       {staff.status}
                     </span>
@@ -179,7 +184,7 @@ export const Staff: React.FC = () => {
                         <Edit2 size={16}/>
                       </button>
                       <button 
-                        onClick={(e) => confirmDelete(e, staff.id)} 
+                        onClick={(e) => confirmDelete(e, staff.user_id)} 
                         className="p-2 hover:bg-white rounded-lg text-gray-400 hover:text-red-500"
                       >
                         <Trash2 size={16}/>
@@ -220,38 +225,20 @@ export const Staff: React.FC = () => {
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Role</label>
                   <select className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 text-sm" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as any})} >
-                    {Object.values(StaffRole).map(role => <option key={role} value={role}>{role}</option>)}
+                     <option value="security">Security</option>
+                     <option value="cleaning">Cleaning</option>
+                     <option value="electrical">Electrical</option>
+                     <option value="manager">Manager</option>
+                     <option value="plumbing">Plumbing</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</label>
                   <select className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 text-sm" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} >
-                    <option>Active</option>
-                    <option>On Leave</option>
-                    <option>Inactive</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                   </select>
                 </div>
-              </div>
-              <div className="space-y-1">
-                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assigned Properties</label>
-                 <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-2xl">
-                    {properties.map(p => (
-                      <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors text-xs font-medium">
-                        <input 
-                          type="checkbox" 
-                          className="accent-orange-500 rounded"
-                          checked={formData.assignedPropertyIds.includes(p.id)}
-                          onChange={e => {
-                            const ids = e.target.checked 
-                              ? [...formData.assignedPropertyIds, p.id]
-                              : formData.assignedPropertyIds.filter(id => id !== p.id);
-                            setFormData({...formData, assignedPropertyIds: ids});
-                          }}
-                        />
-                        {p.name}
-                      </label>
-                    ))}
-                 </div>
               </div>
               <div className="pt-4">
                 <button type="submit" className="w-full py-4 bg-black text-white font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-lg shadow-black/20">

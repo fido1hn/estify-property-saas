@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../services/dbService';
+import { useTenant, useDeleteTenant } from '../hooks/useTenants';
 import { Tenant } from '../types';
 import { ChevronLeft, Mail, Phone, Calendar, Building2, CreditCard, Trash2, Edit2, AlertCircle } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
@@ -9,27 +9,22 @@ import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 export const TenantDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const { tenant, isPending } = useTenant(id!);
+  const { deleteTnt, isDeleting } = useDeleteTenant();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
-
-  const loadData = async () => {
-    const t = await db.tenants.get(id!);
-    if (t) setTenant(t);
-    else navigate('/tenants');
-  };
 
   const handleDelete = async () => {
     if (id) {
-      await db.tenants.delete(id);
-      navigate('/tenants');
+      deleteTnt(id, {
+        onSuccess: () => navigate('/tenants')
+      });
     }
   };
 
+  if (isPending) return null;
   if (!tenant) return null;
+
+  const name = tenant.profiles?.full_name || 'Unknown';
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -38,8 +33,8 @@ export const TenantDetails: React.FC = () => {
           <ChevronLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
-          <p className="text-sm text-gray-500">{tenant.propertyName} • {tenant.unitId}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
+          <p className="text-sm text-gray-500">{tenant.units?.properties?.name || 'Unassigned'} • {tenant.unit_id || 'N/A'}</p>
         </div>
         <div className="ml-auto flex gap-3">
           <button className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500"><Edit2 size={18} /></button>
@@ -51,13 +46,13 @@ export const TenantDetails: React.FC = () => {
         <div className="lg:col-span-2 space-y-8">
            <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm flex flex-col md:flex-row gap-8 items-start">
               <div className="w-32 h-32 rounded-[32px] bg-orange-100 text-orange-600 flex items-center justify-center text-4xl font-bold shrink-0">
-                {tenant.name.charAt(0)}
+                {name.charAt(0)}
               </div>
               <div className="flex-1 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                    <div className="flex items-center gap-3 text-gray-600">
                      <Mail size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{tenant.email}</span>
+                     <span className="text-sm font-medium">{tenant.profiles?.email}</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Phone size={18} className="text-orange-500" />
@@ -65,17 +60,17 @@ export const TenantDetails: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Building2 size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{tenant.propertyName} - {tenant.unitId}</span>
+                     <span className="text-sm font-medium">{tenant.units?.properties?.name || 'Unassigned'} - {tenant.unit_id}</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Calendar size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">Lease ends {new Date(tenant.leaseEnd).toLocaleDateString()}</span>
+                     <span className="text-sm font-medium">Lease ends {new Date(tenant.lease_end).toLocaleDateString()}</span>
                    </div>
                 </div>
                 <div className="pt-6 border-t border-gray-50">
                   <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest ${
-                    tenant.status === 'Active' ? 'bg-green-50 text-green-600' : 
-                    tenant.status === 'Notice' ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
+                    tenant.status === 'active' ? 'bg-green-50 text-green-600' : 
+                    tenant.status === 'pending' ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
                   }`}>
                     Status: {tenant.status}
                   </span>

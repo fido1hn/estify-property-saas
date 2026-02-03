@@ -4,7 +4,7 @@ import { Invoice } from "../types";
 import { PAGE_SIZE } from "../utils/constants";
 
 export async function getInvoices({ filter, sortBy, page }: { filter?: any, sortBy?: any, page?: number } = {}) {
-    let query = supabase
+    let query: any = supabase
         .from('invoices')
         .select(`
             *,
@@ -46,4 +46,9 @@ export async function updateInvoice(id: string, updates: any) {
     const { data, error } = await supabase.from('invoices').update(updates).eq('id', id).select().single();
     if (error) throw new Error("Could not update invoice");
     return data;
+}
+
+export async function deleteInvoice(id: string) {
+    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    if (error) throw new Error("Could not delete invoice");
 }

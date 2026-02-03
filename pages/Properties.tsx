@@ -3,12 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Property } from '../types';
 import { Plus, Filter, MoreHorizontal, MapPin, X, Trash2, Edit2, Eye } from 'lucide-react';
-import { db } from '../services/dbService';
+import { useProperties, useCreateProperty, useEditProperty, useDeleteProperty } from '../hooks/useProperties';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const Properties: React.FC = () => {
   const navigate = useNavigate();
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { properties = [], isPending } = useProperties();
+  const { createProperty } = useCreateProperty();
+  const { editProperty } = useEditProperty();
+  const { deleteProp } = useDeleteProperty();
+
   const [filter, setFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -24,15 +28,6 @@ export const Properties: React.FC = () => {
     image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80'
   });
 
-  useEffect(() => {
-    loadProperties();
-  }, []);
-
-  const loadProperties = async () => {
-    const data = await db.properties.list();
-    setProperties(data);
-  };
-
   const handleOpenModal = (property?: Property) => {
     if (property) {
       setEditingProperty(property);
@@ -40,9 +35,9 @@ export const Properties: React.FC = () => {
         name: property.name,
         address: property.address,
         type: property.type,
-        units: property.units,
+        units: property.total_units,
         occupancy: property.occupancy,
-        image: property.image
+        image: property.image_url || ''
       });
     } else {
       setEditingProperty(null);
@@ -61,12 +56,14 @@ export const Properties: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProperty) {
-      await db.properties.update(editingProperty.id, formData);
+      editProperty({ newPropertyData: formData, id: editingProperty.id }, {
+        onSuccess: () => setIsModalOpen(false)
+      });
     } else {
-      await db.properties.create(formData);
+      createProperty(formData, {
+        onSuccess: () => setIsModalOpen(false)
+      });
     }
-    setIsModalOpen(false);
-    loadProperties();
   };
 
   const confirmDelete = (id: string) => {
@@ -76,12 +73,16 @@ export const Properties: React.FC = () => {
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await db.properties.delete(itemToDelete);
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
-      loadProperties();
+      deleteProp(itemToDelete, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }
+      });
     }
   };
+
+  if (isPending) return null; // Or a loader
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -119,7 +120,7 @@ export const Properties: React.FC = () => {
         {properties.filter(p => filter === 'All' || p.type === filter).map(property => (
           <div key={property.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden group hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300">
             <div className="relative h-48 overflow-hidden">
-              <img src={property.image} alt={property.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+              <img src={property.image_url} alt={property.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-gray-900">
                 {property.type}
               </div>
@@ -154,7 +155,7 @@ export const Properties: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-gray-50 p-3 rounded-2xl">
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Units</p>
-                  <p className="font-bold text-gray-900">{property.units}</p>
+                  <p className="font-bold text-gray-900">{property.total_units}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-2xl">
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Occupancy</p>

@@ -4,7 +4,7 @@ import { PAGE_SIZE } from "../utils/constants";
 import { Property, PropertyInsert } from "../types";
 
 export async function getProperties({ filter, sortBy, page }: { filter?: any, sortBy?: any, page?: number } = {}) {
-  let query = supabase
+  let query: any = supabase
     .from("properties")
     .select("*, units(count)");
 
@@ -120,7 +120,7 @@ export async function createEditProperty(newProperty: any, id?: string) {
   // But since we provided specific Placeholders, it might pass strict type check if we match PropertyInsert.
   // PropertyInsert requires organization_id. 
 
-  let query = supabase.from("properties");
+  let query: any = supabase.from("properties");
 
   // Create
   if (!id) {

@@ -49,10 +49,10 @@ export const Topbar: React.FC<TopbarProps> = ({ user, toggleSidebar, setRole, on
             onClick={() => setShowRoleMenu(!showRoleMenu)}
             className="flex items-center gap-2 md:gap-3 p-1.5 hover:bg-gray-50 rounded-2xl transition-all"
           >
-            <img src={user.avatar} alt={user.name} className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover" />
+            <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}`} alt={user.full_name} className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-cover" />
             <div className="hidden lg:block text-left">
-              <p className="text-sm font-bold text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.role.replace('_', ' ')}</p>
+              <p className="text-sm font-bold text-gray-900">{user.full_name}</p>
+              <p className="text-xs text-gray-500">{user.role?.replace('_', ' ') || user.id}</p>
             </div>
             <ChevronDown size={16} className={`text-gray-400 transition-transform ${showRoleMenu ? 'rotate-180' : ''}`} />
           </button>

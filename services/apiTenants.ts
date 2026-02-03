@@ -4,7 +4,7 @@ import { PAGE_SIZE } from "../utils/constants";
 import { Tenant } from "../types";
 
 export async function getTenants({ filter, sortBy, page }: { filter?: any, sortBy?: any, page?: number } = {}) {
-  let query = supabase
+  let query: any = supabase
     .from("tenants")
     .select(`
         *,
@@ -47,9 +47,9 @@ export async function getTenants({ filter, sortBy, page }: { filter?: any, sortB
 }
 
 export async function getTenant(id: string) {
-  const { data, error } = await supabase
-    .from('tenants')
-    .select(`
+  let query: any = supabase.from('tenants');
+  
+  query = query.select(`
         *,
         profiles:user_id (full_name, email),
         units:unit_id (
@@ -58,6 +58,8 @@ export async function getTenant(id: string) {
     `)
     .eq('id', id)
     .single();
+  
+  const { data, error } = await query;
   
   if (error) {
       console.error(error);
@@ -69,13 +71,17 @@ export async function getTenant(id: string) {
 
 // Update ONLY
 export async function updateTenant(id: string, updates: any) {
-    const { data, error } = await supabase
-        .from('tenants')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+    let query: any = supabase.from('tenants');
+    query = query.update(updates).eq('id', id).select().single();
+    const { data, error } = await query;
     
     if (error) throw new Error("Tenant could not be updated");
     return data;
+}
+
+export async function deleteTenant(id: string) {
+    let query: any = supabase.from('tenants');
+    query = query.delete().eq('id', id);
+    const { error } = await query;
+    if (error) throw new Error("Could not delete tenant");
 }

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../services/dbService';
+import { useStaffMember, useDeleteStaff } from '../hooks/useStaff';
+import { useProperties } from '../hooks/useProperties';
 import { Staff, Property } from '../types';
 import { ChevronLeft, Mail, Phone, Calendar, Building2, Trash2, Edit2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
@@ -9,30 +10,26 @@ import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 export const StaffDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [staff, setStaff] = useState<Staff | null>(null);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { staffMember: staff, isPending: isStaffLoading } = useStaffMember(id!);
+  const { properties: allProperties = [], isPending: isPropertiesLoading } = useProperties();
+  const { deleteStf, isDeleting } = useDeleteStaff();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
-
-  const loadData = async () => {
-    const [s, pList] = await Promise.all([db.staff.get(id!), db.properties.list()]);
-    if (s) {
-      setStaff(s);
-      setProperties(pList.filter(p => s.assignedPropertyIds.includes(p.id)));
-    } else navigate('/staff');
-  };
 
   const handleDelete = async () => {
     if (id) {
-      await db.staff.delete(id);
-      navigate('/staff');
+      deleteStf(id, {
+        onSuccess: () => navigate('/staff')
+      });
     }
   };
 
+  if (isStaffLoading) return null;
   if (!staff) return null;
+
+  const properties = allProperties.filter(p => false); // Assignments mock logic
+
+
+  const name = staff.profiles?.full_name || 'Unknown';
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -41,8 +38,8 @@ export const StaffDetails: React.FC = () => {
           <ChevronLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{staff.name}</h1>
-          <p className="text-sm text-gray-500">{staff.role} • Employee ID: {staff.id}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
+          <p className="text-sm text-gray-500">{staff.role} • Employee ID: {staff.user_id}</p>
         </div>
         <div className="ml-auto flex gap-3">
           <button className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500"><Edit2 size={18} /></button>
@@ -53,16 +50,16 @@ export const StaffDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
            <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm flex flex-col md:flex-row gap-8 items-start">
-              <img src={staff.avatar || `https://picsum.photos/seed/${staff.id}/200`} className="w-32 h-32 rounded-[32px] object-cover shrink-0" />
+              <img src={staff.profiles?.avatar_url || `https://picsum.photos/seed/${staff.user_id}/200`} className="w-32 h-32 rounded-[32px] object-cover shrink-0" />
               <div className="flex-1 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                    <div className="flex items-center gap-3 text-gray-600">
                      <Mail size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{staff.email}</span>
+                     <span className="text-sm font-medium">{staff.profiles?.email}</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Phone size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{staff.phone}</span>
+                     <span className="text-sm font-medium">{staff.phone_number}</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <ShieldCheck size={18} className="text-orange-500" />
@@ -75,7 +72,7 @@ export const StaffDetails: React.FC = () => {
                 </div>
                 <div className="pt-6 border-t border-gray-50">
                   <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest ${
-                    staff.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
+                    staff.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'
                   }`}>
                     Current Status: {staff.status}
                   </span>
@@ -88,7 +85,7 @@ export const StaffDetails: React.FC = () => {
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {properties.map(p => (
                   <div key={p.id} onClick={() => navigate(`/properties/${p.id}`)} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl hover:bg-orange-50 transition-colors cursor-pointer group">
-                    <img src={p.image} className="w-12 h-12 rounded-xl object-cover" />
+                    <img src={p.image_url || ''} className="w-12 h-12 rounded-xl object-cover" />
                     <div>
                       <p className="text-sm font-bold text-gray-900 group-hover:text-orange-600">{p.name}</p>
                       <p className="text-[10px] text-gray-500">{p.address}</p>

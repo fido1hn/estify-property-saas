@@ -1,41 +1,34 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../services/dbService';
 import { MaintenanceRequest } from '../types';
+import { useMaintenanceRequest, useUpdateMaintenance, useDeleteMaintenance } from '../hooks/useMaintenance';
 import { ChevronLeft, Clock, Wrench, AlertTriangle, CheckCircle2, Trash2, Edit2, User } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const MaintenanceDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [request, setRequest] = useState<MaintenanceRequest | null>(null);
+  const { request, isPending } = useMaintenanceRequest(id!);
+  const { updateMaintenance } = useUpdateMaintenance();
+  const { deleteMaintenance } = useDeleteMaintenance();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
-
-  const loadData = async () => {
-    const r = await db.maintenance.get(id!);
-    if (r) setRequest(r);
-    else navigate('/maintenance');
-  };
 
   const handleStatusChange = async (status: any) => {
     if (id) {
-      await db.maintenance.update(id, { status });
-      loadData();
+      updateMaintenance({ id, updates: { status } });
     }
   };
 
   const handleDelete = async () => {
     if (id) {
-      await db.maintenance.delete(id);
-      navigate('/maintenance');
+      deleteMaintenance(id, {
+        onSuccess: () => navigate('/maintenance')
+      });
     }
   };
 
+  if (isPending) return null;
   if (!request) return null;
 
   return (
@@ -46,7 +39,7 @@ export const MaintenanceDetails: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{request.title}</h1>
-          <p className="text-sm text-gray-500">Unit {request.unit} • Reported on {request.createdAt}</p>
+          <p className="text-sm text-gray-500">Unit {request.unit_id.slice(0, 8)} • Reported on {new Date(request.created_at).toLocaleDateString()}</p>
         </div>
         <div className="ml-auto flex gap-3">
           <button className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500"><Edit2 size={18} /></button>
@@ -59,13 +52,13 @@ export const MaintenanceDetails: React.FC = () => {
           <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-6">
             <div className="flex justify-between items-start">
                <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest ${
-                  request.status === 'Pending' ? 'bg-orange-50 text-orange-600' : 
-                  request.status === 'In Progress' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+                  request.status === 'open' ? 'bg-orange-50 text-orange-600' : 
+                  request.status === 'in_progress' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
                }`}>
                  {request.status}
                </span>
                <span className={`text-xs font-bold uppercase tracking-widest ${
-                  request.priority === 'High' ? 'text-red-500' : 'text-gray-400'
+                  request.priority === 'high' || request.priority === 'urgent' ? 'text-red-500' : 'text-gray-400'
                }`}>
                  {request.priority} Priority
                </span>
@@ -79,7 +72,7 @@ export const MaintenanceDetails: React.FC = () => {
                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Reported By</p>
                  <div className="flex items-center gap-2">
                    <div className="w-6 h-6 rounded-full bg-gray-200"></div>
-                   <span className="text-sm font-medium text-gray-900">Tenant (U-{request.unit})</span>
+                   <span className="text-sm font-medium text-gray-900">Tenant (U-{request.unit_id.slice(0, 8)})</span>
                  </div>
                </div>
                <div className="space-y-1">
@@ -95,8 +88,8 @@ export const MaintenanceDetails: React.FC = () => {
           <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
              <h3 className="text-xl font-bold text-gray-900 mb-6">Activity Timeline</h3>
              <div className="space-y-8 relative before:absolute before:inset-y-0 before:left-4 before:w-0.5 before:bg-gray-100">
-                <TimelineItem title="Work order created" time={request.createdAt} status="completed" />
-                <TimelineItem title="Status changed to Pending" time={request.createdAt} status="active" />
+                <TimelineItem title="Work order created" time={new Date(request.created_at).toLocaleTimeString()} status="completed" />
+                <TimelineItem title={`Status is now ${request.status}`} time="Just now" status="active" />
                 <TimelineItem title="Technician review" time="TBD" status="pending" />
              </div>
           </div>
@@ -105,11 +98,11 @@ export const MaintenanceDetails: React.FC = () => {
         <div className="space-y-8">
           <div className="bg-black text-white p-8 rounded-[40px] space-y-6">
             <h3 className="font-bold text-lg">Update Workflow</h3>
-            {request.status === 'Pending' && (
-              <button onClick={() => handleStatusChange('In Progress')} className="w-full py-4 bg-blue-500 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all">Start Work</button>
+            {request.status === 'open' && (
+              <button onClick={() => handleStatusChange('in_progress')} className="w-full py-4 bg-blue-500 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all">Start Work</button>
             )}
-            {request.status === 'In Progress' && (
-              <button onClick={() => handleStatusChange('Completed')} className="w-full py-4 bg-green-500 text-white font-bold rounded-2xl hover:bg-green-600 transition-all">Mark Complete</button>
+            {request.status === 'in_progress' && (
+              <button onClick={() => handleStatusChange('resolved')} className="w-full py-4 bg-green-500 text-white font-bold rounded-2xl hover:bg-green-600 transition-all">Mark Complete</button>
             )}
             <button className="w-full py-4 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all">Assign Vendor</button>
           </div>

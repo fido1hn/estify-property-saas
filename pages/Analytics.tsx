@@ -5,7 +5,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { TrendingUp, Users, DollarSign, PieChart as PieChartIcon, Download, Calendar, Sparkles } from 'lucide-react';
-import { db } from '../services/dbService';
+import { getMonthlyRevenue, getOccupancyTrend, getRevenueDistribution, getSummaryMetrics } from '../services/apiAnalytics';
 
 const COLORS = ['#f97316', '#000000', '#94a3b8'];
 
@@ -19,10 +19,10 @@ export const Analytics: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       const [rev, occ, dist, met] = await Promise.all([
-        db.analytics.getMonthlyRevenue(),
-        db.analytics.getOccupancyTrend(),
-        db.analytics.getRevenueDistribution(),
-        db.analytics.getSummaryMetrics(),
+        getMonthlyRevenue(),
+        getOccupancyTrend(),
+        getRevenueDistribution(),
+        getSummaryMetrics(),
       ]);
       setRevenueData(rev);
       setOccupancyData(occ);

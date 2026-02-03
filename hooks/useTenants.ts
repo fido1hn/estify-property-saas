@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTenants, getTenant, updateTenant } from "../services/apiTenants";
+import { getTenants, getTenant, updateTenant, deleteTenant } from "../services/apiTenants";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -53,4 +53,19 @@ export function useUpdateTenant() {
     });
 
     return { isUpdating, updateTnt };
+}
+
+export function useDeleteTenant() {
+    const queryClient = useQueryClient();
+    
+    const { isPending: isDeleting, mutate: deleteTnt } = useMutation({
+        mutationFn: deleteTenant,
+        onSuccess: () => {
+            toast.success("Tenant removed successfully");
+            queryClient.invalidateQueries({ queryKey: ["tenants"] });
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
+    return { isDeleting, deleteTnt };
 }

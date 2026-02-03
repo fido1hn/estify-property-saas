@@ -82,3 +82,6 @@ export enum UserRole {
   MAINTENANCE = 'staff',
   TENANT = 'tenant'
 }
+
+export type User = ProfileRow & { role: UserRole | string };
+export type StaffRole = StaffRoleEnum;

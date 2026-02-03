@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMaintenanceRequests, updateMaintenanceRequest, deleteMaintenanceRequest } from "../services/apiMaintenance";
+import { getMaintenanceRequests, getMaintenanceRequest, createMaintenanceRequest, updateMaintenanceRequest, deleteMaintenanceRequest } from "../services/apiMaintenance";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -27,7 +27,31 @@ export function useMaintenance() {
     queryFn: () => getMaintenanceRequests({ filter, sortBy, page }),
   });
 
-  return { isPending, error, requests, count };
+  return { isPending, error, maintenanceRequests: requests, count };
+}
+
+export function useMaintenanceRequest(id: string) {
+    const { isPending, data: request, error } = useQuery({
+        queryKey: ["maintenance", id],
+        queryFn: () => getMaintenanceRequest(id),
+        retry: false
+    });
+    return { isPending, error, request };
+}
+
+export function useCreateMaintenance() {
+    const queryClient = useQueryClient();
+    
+    const { isPending: isCreating, mutate: createMaintenance } = useMutation({
+        mutationFn: createMaintenanceRequest,
+        onSuccess: () => {
+            toast.success("Maintenance request created");
+            queryClient.invalidateQueries({ queryKey: ["maintenance"] });
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
+    return { isCreating, createMaintenance };
 }
 
 export function useUpdateMaintenance() {
@@ -42,7 +66,7 @@ export function useUpdateMaintenance() {
         onError: (err) => toast.error(err.message)
     });
 
-    return { isUpdating, updateRequest };
+    return { isUpdating, updateMaintenance: updateRequest };
 }
 
 export function useDeleteMaintenance() {
@@ -57,5 +81,5 @@ export function useDeleteMaintenance() {
         onError: (err) => toast.error(err.message)
     });
 
-    return { isDeleting, deleteRequest };
+    return { isDeleting, deleteMaintenance: deleteRequest };
 }

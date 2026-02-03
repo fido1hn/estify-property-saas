@@ -2,22 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Invoice } from '../types';
 import { CreditCard, ArrowUpRight, ArrowDownLeft, Trash2, Download } from 'lucide-react';
-import { db } from '../services/dbService';
+import { useInvoices, useDeleteInvoice } from '../hooks/useInvoices';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const Billing: React.FC = () => {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const { invoices = [], isPending } = useInvoices();
+  const { deleteInv } = useDeleteInvoice();
+  
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadInvoices();
-  }, []);
-
-  const loadInvoices = async () => {
-    const data = await db.billing.list();
-    setInvoices(data);
-  };
 
   const confirmDelete = (id: string) => {
     setItemToDelete(id);
@@ -26,12 +19,16 @@ export const Billing: React.FC = () => {
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await db.billing.delete(itemToDelete);
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
-      loadInvoices();
+      deleteInv(itemToDelete, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }
+      });
     }
   };
+
+  if (isPending) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -120,13 +117,13 @@ export const Billing: React.FC = () => {
                  <tbody className="divide-y divide-gray-50">
                    {invoices.map(inv => (
                      <tr key={inv.id} className="hover:bg-gray-50/50 transition-colors group">
-                       <td className="px-6 py-5 font-bold text-sm text-gray-900">{inv.id}</td>
-                       <td className="px-6 py-5 text-sm text-gray-600">{inv.tenantName}</td>
-                       <td className="px-6 py-5 text-sm font-bold text-gray-900">${inv.amount.toLocaleString()}</td>
+                       <td className="px-6 py-5 font-bold text-sm text-gray-900">{inv.id.slice(0, 8)}</td>
+                       <td className="px-6 py-5 text-sm text-gray-600">{inv.profiles?.full_name || 'Unknown'}</td>
+                       <td className="px-6 py-5 text-sm font-bold text-gray-900">${(inv.amount_kobo / 100).toLocaleString()}</td>
                        <td className="px-6 py-5">
                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            inv.status === 'Paid' ? 'bg-green-50 text-green-600' : 
-                            inv.status === 'Unpaid' ? 'bg-gray-50 text-gray-600' : 
+                            inv.status === 'paid' ? 'bg-green-50 text-green-600' : 
+                            inv.status === 'draft' ? 'bg-gray-50 text-gray-600' : 
                             'bg-red-50 text-red-600'
                           }`}>
                             {inv.status}

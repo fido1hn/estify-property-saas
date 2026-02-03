@@ -22,6 +22,7 @@ import Login from './pages/auth/login';
 import Signup from './pages/auth/signup';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { UserRole, User } from './types';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,12 +64,13 @@ const AppContent = () => {
 
   // Transform auth profile to the shape Topbar expects
   const appUser = {
+    ...(profile || {}),
     id: profile?.id || 'temp-id',
-    name: profile?.full_name || 'User',
+    full_name: profile?.full_name || 'User',
     role: getUserRole(role),
-    avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+    avatar_url: profile?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
     email: profile?.email || ''
-  };
+  } as User;
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 relative">

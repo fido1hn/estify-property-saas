@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { UserRole } from '../types';
-import { NAV_ITEMS } from '../constants';
+import { NAV_ITEMS } from '../utils/constants';
 import { X, LogOut } from 'lucide-react';
 
 interface SidebarProps {

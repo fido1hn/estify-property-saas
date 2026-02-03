@@ -1,13 +1,14 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Bell, CreditCard, Building, Globe, Moon, ChevronRight } from 'lucide-react';
+import { User, Shield, Bell, CreditCard, Building, Globe, Moon, ChevronRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../services/dbService';
+import { useOrganization, useUpdateOrganization } from '../hooks/useOrganization';
 
 export const Settings: React.FC = () => {
   const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const { organization, isPending: isOrgLoading } = useOrganization();
 
   const TABS = [
     { id: 'profile', label: 'My Profile', icon: <User size={18}/> },
@@ -81,7 +82,11 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
-          {activeTab !== 'profile' && (
+          {activeTab === 'company' && (
+            <CompanySettings organization={organization} isPending={isOrgLoading} />
+          )}
+
+          {activeTab !== 'profile' && activeTab !== 'company' && (
             <div className="flex flex-col items-center justify-center min-h-[300px] md:h-96 text-gray-400 p-8 text-center">
               <div className="p-4 md:p-6 bg-gray-50 rounded-full mb-4">
                 {TABS.find(t => t.id === activeTab)?.icon}
@@ -119,3 +124,52 @@ const ToggleItem: React.FC<{label: string, description: string, defaultChecked: 
     </div>
   </div>
 );
+const CompanySettings: React.FC<{organization: any, isPending: boolean}> = ({ organization, isPending }) => {
+  const { updateOrg, isUpdating } = useUpdateOrganization();
+  const [name, setName] = useState(organization?.name || '');
+  
+  useEffect(() => {
+    if (organization) setName(organization.name);
+  }, [organization]);
+
+  const handleOrgSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateOrg({ name });
+  };
+
+  if (isPending) return <div className="p-8 flex items-center justify-center h-64"><Loader2 className="animate-spin text-orange-500" /></div>;
+
+  return (
+    <div className="p-5 md:p-8 space-y-8 animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row items-center gap-6">
+        <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gray-900 flex items-center justify-center text-white text-3xl font-bold">
+            {name?.charAt(0) || 'E'}
+        </div>
+        <div className="text-center sm:text-left">
+          <h3 className="text-lg md:text-xl font-bold text-gray-900">{name || 'Estify Property'}</h3>
+          <p className="text-xs md:text-sm text-gray-500">Enterprise Asset Management Portal</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleOrgSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-1 md:space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Organization Name</label>
+                <input 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-4 py-2.5 md:py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-xs md:text-sm font-medium text-gray-900" 
+                />
+            </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+            <button type="submit" disabled={isUpdating} className="px-8 py-2.5 bg-black text-white text-xs md:text-sm font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-lg shadow-black/10 flex items-center gap-2">
+                {isUpdating && <Loader2 size={14} className="animate-spin" />}
+                Update Organization
+            </button>
+        </div>
+      </form>
+    </div>
+  );
+};

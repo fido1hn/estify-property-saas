@@ -1,17 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../services/dbService';
 import { Property, Tenant, Staff } from '../types';
 import { ChevronLeft, MapPin, Building2, Users, ArrowUpRight, Plus, Mail, Edit2, Trash2, X, ShieldCheck } from 'lucide-react';
+import { useProperty, useEditProperty, useDeleteProperty } from '../hooks/useProperties';
+import { useTenants } from '../hooks/useTenants';
+import { useStaff } from '../hooks/useStaff';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [property, setProperty] = useState<Property | null>(null);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [staff, setStaff] = useState<Staff[]>([]);
+  
+  const { property, isPending: isPropertyLoading } = useProperty(id!);
+  const { tenants: allTenants = [], isPending: isTenantsLoading } = useTenants();
+  const { staff: allStaff = [], isPending: isStaffLoading } = useStaff();
+  
+  const { editProperty, isEditing } = useEditProperty();
+  const { deleteProp, isDeleting } = useDeleteProperty();
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
@@ -25,51 +32,40 @@ export const PropertyDetails: React.FC = () => {
   });
 
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]);
-
-  const loadData = async () => {
-    const [p, allTenants, allStaff] = await Promise.all([
-      db.properties.get(id!),
-      db.tenants.list(),
-      db.staff.list()
-    ]);
-    
-    if (p) {
-      setProperty(p);
+    if (property) {
       setFormData({
-        name: p.name,
-        address: p.address,
-        type: p.type,
-        units: p.units,
-        occupancy: p.occupancy,
-        image: p.image
+        name: property.name,
+        address: property.address,
+        type: property.type,
+        units: property.total_units,
+        occupancy: property.occupancy,
+        image: property.image_url || ''
       });
-      setTenants(allTenants.filter(t => t.propertyName === p.name));
-      setStaff(allStaff.filter(s => s.assignedPropertyIds.includes(p.id)));
-    } else {
-      navigate('/properties');
     }
-  };
+  }, [property]);
+
+  const tenants = allTenants.filter(t => t.units?.properties?.name === property?.name);
+  const staff = allStaff; // Filtering logic can be added if assignments are available in DB
+
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (id) {
-      await db.properties.update(id, formData);
-      setIsEditModalOpen(false);
-      loadData();
+      editProperty({ newPropertyData: formData, id }, {
+        onSuccess: () => setIsEditModalOpen(false)
+      });
     }
   };
 
   const handleDelete = async () => {
     if (id) {
-      await db.properties.delete(id);
-      navigate('/properties');
+      deleteProp(id, {
+        onSuccess: () => navigate('/properties')
+      });
     }
   };
 
+  if (isPropertyLoading) return null;
   if (!property) return null;
 
   return (
@@ -106,7 +102,7 @@ export const PropertyDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <div className="relative h-96 rounded-[40px] overflow-hidden shadow-xl">
-            <img src={property.image} alt={property.name} className="w-full h-full object-cover" />
+            <img src={property.image_url || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80'} alt={property.name} className="w-full h-full object-cover" />
             <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-gray-900 shadow-sm">
               {property.type} Portfolio
             </div>
@@ -128,17 +124,17 @@ export const PropertyDetails: React.FC = () => {
                 <div className="space-y-4">
                   {tenants.map(t => (
                     <div 
-                      key={t.id} 
-                      onClick={() => navigate(`/tenants/${t.id}`)}
+                      key={t.user_id} 
+                      onClick={() => navigate(`/tenants/${t.user_id}`)}
                       className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
-                          {t.name.charAt(0)}
+                          {t.profiles?.full_name?.charAt(0) || '?'}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900 text-sm">{t.name}</p>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold">{t.unitId}</p>
+                          <p className="font-bold text-gray-900 text-sm">{t.profiles?.full_name || 'Unknown'}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold">{t.unit_id.slice(0, 8)}</p>
                         </div>
                       </div>
                     </div>
@@ -164,14 +160,14 @@ export const PropertyDetails: React.FC = () => {
                 <div className="space-y-4">
                   {staff.map(s => (
                     <div 
-                      key={s.id} 
-                      onClick={() => navigate(`/staff/${s.id}`)}
+                      key={s.user_id} 
+                      onClick={() => navigate(`/staff/${s.user_id}`)}
                       className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
-                        <img src={s.avatar || `https://picsum.photos/seed/${s.id}/100`} className="w-10 h-10 rounded-xl object-cover" />
+                        <img src={s.profiles?.avatar_url || `https://picsum.photos/seed/${s.user_id}/100`} className="w-10 h-10 rounded-xl object-cover" />
                         <div>
-                          <p className="font-bold text-gray-900 text-sm">{s.name}</p>
+                          <p className="font-bold text-gray-900 text-sm">{s.profiles?.full_name}</p>
                           <p className="text-[10px] text-gray-500 uppercase font-bold">{s.role}</p>
                         </div>
                       </div>
@@ -195,7 +191,7 @@ export const PropertyDetails: React.FC = () => {
                </div>
                <div>
                  <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Units</p>
-                 <p className="text-3xl font-bold">{property.units}</p>
+                 <p className="text-3xl font-bold">{property.total_units}</p>
                </div>
             </div>
             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">

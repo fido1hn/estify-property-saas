@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getInvoices, updateInvoice } from "../services/apiInvoices";
+import { getInvoices, updateInvoice, deleteInvoice } from "../services/apiInvoices";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -43,4 +43,19 @@ export function useUpdateInvoice() {
     });
 
     return { isUpdating, updateInv };
+}
+
+export function useDeleteInvoice() {
+    const queryClient = useQueryClient();
+    
+    const { isPending: isDeleting, mutate: deleteInv } = useMutation({
+        mutationFn: deleteInvoice,
+        onSuccess: () => {
+            toast.success("Invoice deleted");
+            queryClient.invalidateQueries({ queryKey: ["invoices"] });
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
+    return { isDeleting, deleteInv };
 }
