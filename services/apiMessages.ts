@@ -2,9 +2,12 @@
 import { supabase } from "./supabaseClient";
 
 export async function getContacts() {
+    // 'role' column does not exist on profiles. 
+    // If we need the role, we would need to join with 'staff' or 'user_roles' tables.
+    // For now, we will fetch basic profile info to avoid the error.
     const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, role, avatar_url')
+    .select('id, full_name, avatar_url') 
     .limit(50); // Pagination could be added
 
     if (error) {
@@ -12,10 +15,10 @@ export async function getContacts() {
         throw new Error("Contacts could not be loaded");
     }
   
-    return (data || []).map(p => ({
+    return (data || []).map((p: any) => ({
         id: p.id,
         name: p.full_name,
-        role: p.role,
+        role: 'User', // Placeholder as we removed the invalid 'role' column selection
         lastMsg: 'Hello there!', // Mock for now, requires joins with messages
         time: '10:30 AM', 
         avatar: p.avatar_url || 'https://ui-avatars.com/api/?name=' + p.full_name,
@@ -53,7 +56,7 @@ export async function sendMessage(receiverId: string, content: string) {
 
     const { data, error } = await supabase
         .from('messages')
-        .insert([{ sender_id: user.id, receiver_id: receiverId, content }])
+        .insert([{ sender_id: user.id, receiver_id: receiverId, content, is_read: false }])
         .select()
         .single();
     

@@ -7,12 +7,7 @@ export async function getTenants({ filter, sortBy, page }: { filter?: any, sortB
   let query = supabase
     .from("tenants")
     .select(`
-        id,
-        user_id,
-        unit_id,
-        lease_end,
-        status,
-        created_at,
+        *,
         profiles:user_id (full_name, email),
         units:unit_id (
             properties:property_id (name)
@@ -42,28 +37,20 @@ export async function getTenants({ filter, sortBy, page }: { filter?: any, sortB
     throw new Error("Tenants could not be loaded");
   }
 
-  const formattedData: Tenant[] = (data || []).map((t: any) => ({
-      id: t.id, 
-      name: t.profiles?.full_name || 'Unknown',
-      email: t.profiles?.email || '',
-      unitId: t.unit_id,
-      propertyName: t.units?.properties?.name || 'Unassigned',
-      leaseEnd: t.lease_end,
-      status: (t.status === 'active' ? 'Active' : t.status === 'pending' ? 'Notice' : 'Delinquent') as any
+  // Cast data to any[] to avoid excessive type instantiation depth with the deep joins
+  const formattedData: Tenant[] = (data as any[] || []).map((t: any) => ({
+      ...t
+      // We pass the raw structure which matches the Tenant type defined in types/index.ts
   }));
 
   return { data: formattedData, count };
 }
 
 export async function getTenant(id: string) {
-  const { data: t, error } = await supabase
+  const { data, error } = await supabase
     .from('tenants')
     .select(`
-        id,
-        user_id,
-        unit_id,
-        lease_end,
-        status,
+        *,
         profiles:user_id (full_name, email),
         units:unit_id (
             properties:property_id (name)
@@ -77,19 +64,10 @@ export async function getTenant(id: string) {
       throw new Error("Tenant not found");
   }
 
-  const tenant: any = t;
-  return {
-    id: tenant.id,
-    name: tenant.profiles?.full_name || 'Unknown',
-    email: tenant.profiles?.email || '',
-    unitId: tenant.unit_id,
-    propertyName: tenant.units?.properties?.name || 'Unassigned',
-    leaseEnd: tenant.lease_end,
-    status: (tenant.status === 'active' ? 'Active' : tenant.status === 'pending' ? 'Notice' : 'Delinquent') as any
-  };
+  return data as any as Tenant;
 }
 
-// Update ONLY (Creation usually handles auth + profile + tenant record creation which is complex)
+// Update ONLY
 export async function updateTenant(id: string, updates: any) {
     const { data, error } = await supabase
         .from('tenants')

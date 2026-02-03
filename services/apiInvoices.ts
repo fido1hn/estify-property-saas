@@ -33,12 +33,10 @@ export async function getInvoices({ filter, sortBy, page }: { filter?: any, sort
         throw new Error("Invoices could not be loaded");
     }
     
-    const formattedData: Invoice[] = (data || []).map((inv: any) => ({
-        id: inv.id,
-        tenantName: inv.profiles?.full_name || 'Unknown',
-        amount: inv.amount_kobo / 100,
-        dueDate: inv.due_date,
-        status: (inv.status === 'paid' ? 'Paid' : inv.status === 'overdue' ? 'Overdue' : 'Unpaid') as any
+    // Cast to any[] and map to Invoice type (which mirrors DB)
+    const formattedData: Invoice[] = (data as any[] || []).map((inv: any) => ({
+        ...inv
+        // Invokes structured data matching InvoiceRow + profiles
     }));
 
     return { data: formattedData, count };

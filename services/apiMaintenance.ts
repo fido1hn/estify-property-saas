@@ -30,14 +30,8 @@ export async function getMaintenanceRequests({ filter, sortBy, page }: { filter?
         throw new Error("Maintenance requests could not be loaded");
     }
 
-    const formattedData: MaintenanceRequest[] = (data || []).map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        status: (r.status === 'pending' ? 'Pending' : r.status === 'in_progress' ? 'In Progress' : 'Completed') as any,
-        priority: (r.priority.charAt(0).toUpperCase() + r.priority.slice(1)) as any,
-        unit: r.unit_id,
-        createdAt: r.created_at
+    const formattedData: MaintenanceRequest[] = (data as any[] || []).map((r: any) => ({
+        ...r
     }));
 
     return { data: formattedData, count };

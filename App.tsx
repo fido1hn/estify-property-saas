@@ -22,7 +22,6 @@ import Login from './pages/auth/login';
 import Signup from './pages/auth/signup';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { UserRole } from './types';
 
 const queryClient = new QueryClient({
   defaultOptions: {

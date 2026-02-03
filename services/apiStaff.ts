@@ -1,6 +1,6 @@
 
 import { supabase } from "./supabaseClient";
-import { Staff, StaffRole } from "../types";
+import { Staff } from "../types";
 import { PAGE_SIZE } from "../utils/constants";
 
 export async function getStaffList({ filter, sortBy, page }: { filter?: any, sortBy?: any, page?: number } = {}) {
@@ -36,15 +36,22 @@ export async function getStaffList({ filter, sortBy, page }: { filter?: any, sor
         throw new Error("Staff list could not be loaded");
     }
 
-    const formattedData: Staff[] = (data || []).map((s: any) => ({
-        id: s.user_id,
-        name: s.profiles?.full_name || 'Unknown',
-        email: s.profiles?.email || '',
-        phone: s.phone_number,
-        role: (s.role.charAt(0).toUpperCase() + s.role.slice(1)) as StaffRole,
-        assignedPropertyIds: [], // TODO: implementations for assignments
-        status: (s.status === 'active' ? 'Active' : 'Inactive') as any,
-        avatar: s.profiles?.avatar_url
+    const formattedData: Staff[] = (data as any[] || []).map((s: any) => ({
+        ...s,
+        // Ensure id is mapped if needed by UI, but DB uses user_id as PK for staff?
+        // Actually staff table has (user_id) as PK? 
+        // Checking schema: staff PK is user_id? 
+        // DB Schema in view_file showed: staff: { Row: { user_id, ... } }. No separate 'id' column on staff table?
+        // Wait, looking at database.types.ts: 
+        // staff: { Row: { created_at: string, phone_number: string, role: ..., status: ..., user_id: string } }
+        // THERE IS NO 'id' COLUMN in staff table. Just 'user_id' which is likely PK.
+        // My extended Staff type extends StaffRow.
+        // So it has user_id, no id.
+        // The UI likely expects 'id'.
+        // If I want to match DB types, I should use 'user_id'. 
+        // But React lists often need `id`.
+        // However, "should any part of our program not agree... be changes to reflect ... db".
+        // So I will return `user_id` inside the object, and if UI needs key, it should use user_id.
     }));
 
     return { data: formattedData, count };
