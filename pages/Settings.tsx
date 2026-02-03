@@ -1,8 +1,12 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { User, Shield, Bell, CreditCard, Building, Globe, Moon, ChevronRight } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../services/dbService';
 
 export const Settings: React.FC = () => {
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   const TABS = [
@@ -44,22 +48,21 @@ export const Settings: React.FC = () => {
           {activeTab === 'profile' && (
             <div className="p-5 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-300">
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                <img src="https://picsum.photos/seed/angel/200" alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-3xl object-cover" />
+                <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}`} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-3xl object-cover" />
                 <div className="text-center sm:text-left">
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900">Angel H.</h3>
-                  <p className="text-xs md:text-sm text-gray-500">Company Admin • Since Oct 2023</p>
+                  <h3 className="text-lg md:text-xl font-bold text-gray-900">{profile?.full_name || 'User'}</h3>
+                  <p className="text-xs md:text-sm text-gray-500">{profile?.email} • Since {new Date(user?.created_at || Date.now()).toLocaleDateString()}</p>
                   <div className="flex justify-center sm:justify-start gap-2 mt-4">
                     <button className="px-3 py-1.5 bg-gray-50 text-[10px] font-bold rounded-xl hover:bg-gray-100 transition-colors">Change Photo</button>
-                    <button className="px-3 py-1.5 text-red-500 text-[10px] font-bold hover:bg-red-50 rounded-xl transition-colors">Remove</button>
+                    {/* <button className="px-3 py-1.5 text-red-500 text-[10px] font-bold hover:bg-red-50 rounded-xl transition-colors">Remove</button> */}
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-                <InputGroup label="Full Name" value="Angel Hernandez" />
-                <InputGroup label="Email Address" value="angel@estify.io" />
-                <InputGroup label="Phone Number" value="+1 (555) 000-0000" />
-                <InputGroup label="Timezone" value="Pacific Time (PT)" />
+                <InputGroup label="Full Name" value={profile?.full_name || ''} />
+                <InputGroup label="Email Address" value={profile?.email || ''} />
+                <InputGroup label="User ID" value={user?.id || ''} />
               </div>
 
               <div className="pt-6 border-t border-gray-50">

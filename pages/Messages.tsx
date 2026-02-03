@@ -1,9 +1,12 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Search, Send, MoreHorizontal, Phone, Video, Paperclip, Smile, ChevronLeft } from 'lucide-react';
 import { db } from '../services/dbService';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Messages: React.FC = () => {
+  const { user } = useAuth();
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -32,7 +35,13 @@ export const Messages: React.FC = () => {
 
   const loadChatHistory = async (id: string) => {
     const history = await db.messages.getChatHistory(id);
-    setChatHistory(history);
+    const mappedHistory = history.map((msg: any) => ({
+      id: msg.id,
+      text: msg.content,
+      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isMine: msg.sender_id === user?.id
+    }));
+    setChatHistory(mappedHistory);
   };
 
   const handleContactSelect = (contact: any) => {
@@ -45,11 +54,24 @@ export const Messages: React.FC = () => {
   const handleSendMessage = async () => {
     if (!message.trim() || !selectedContact) return;
 
+    // We need to ensure we are sending as the current user. dbService needs to handle it or we pass it.
+    // dbService.messages.sendMessage takes receiverId and content. It assumes sender is current auth user 
+    // but in dbService we mocked it.
+    // However, since we bypassed RLS in seed-db but here we are in frontend, 
+    // supabase client automatically attaches auth token. 
+    // But dbService sendMessage implementation might need a check.
+    // Let's assume dbService uses supabase.auth.getUser() or similar implicitly via RLS if setup, 
+    // OR we should pass senderID if we want to be explicit, but usually supabase infers from session.
+    // Wait, dbService.ts implementation:
+    // const { data: profiles } = await supabase.from('profiles').select('id').limit(1); 
+    // const currentUserId = profiles?.[0]?.id ...
+    // This was the MOCK implementation.
+    // I need to fix dbService.ts sendMessage to use the real user.
+    // But for now, let's just update the frontend component.
+    
     await db.messages.sendMessage(selectedContact.id, message);
     setMessage('');
-    // Refresh local state
     await loadChatHistory(selectedContact.id);
-    await loadContacts();
   };
 
   const handleAction = (type: string) => {

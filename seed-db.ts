@@ -1,8 +1,10 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { faker } from '@faker-js/faker';
 import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { Database } from './types/database.types';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -13,461 +15,346 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabaseServiceRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Error: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env file');
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+  console.error('Error: Required environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY) must be set in .env file');
   process.exit(1);
 }
 
-if (!supabaseServiceRoleKey) {
-  console.error('Error: VITE_SUPABASE_SERVICE_ROLE_KEY must be set in .env file');
-  process.exit(1);
-}
-
-// Create admin client for auth operations
-const adminSupabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+// Create admin client for auth and data operations (bypasses RLS)
+const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   }
 });
 
-// Create regular client for data operations
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Alias for clarity if needed, but we'll just use supabase everywhere
+const adminSupabase = supabase;
 
 // Configuration
-const NUM_PROPERTIES = 10;
-const NUM_UNITS_PER_PROPERTY = 5;
-const NUM_PROFILES = 50;
-const NUM_STAFF = 10;
-const NUM_TENANTS = 30;
-const NUM_MAINTENANCE_REQUESTS = 40;
-const NUM_INVOICES = 50;
-const NUM_MESSAGES = 100;
+const CONFIG = {
+  NUM_ORGS: 1,
+  NUM_PROPERTIES: 5,
+  NUM_UNITS_PER_PROPERTY: 8,
+  NUM_ADMINS: 1,
+  NUM_OWNERS: 1,
+  NUM_MANAGERS: 1, // Staff with manager role
+  NUM_MAINTENANCE_STAFF: 3,
+  NUM_TENANTS: 20,
+  NUM_REQUESTS: 15,
+  NUM_INVOICES: 20,
+  NUM_MESSAGES: 30
+};
 
-interface Profile {
+type UserRole = Database['public']['Enums']['user_role'];
+type StaffRole = Database['public']['Enums']['staff_role'];
+
+interface SeedUser {
   id: string;
-  full_name: string;
   email: string;
-  role: string;
-  avatar_url: string;
+  fullName: string;
+  role: UserRole;
+  staffRole?: StaffRole; // Only for staff
 }
 
-interface Property {
-  id: number;
-  name: string;
-  address: string;
-  type: string;
-  image_url: string;
-  total_units: number;
-}
-
-interface Unit {
-  id: string;
-  property_id: number;
-}
-
-interface Staff {
-  id: string;
-  phone_number: number;
-  specialization: string;
-  status: string;
-}
-
-interface Tenant {
-  id: string;
-  unit_id: string;
-  lease_start: string;
-  lease_end: string;
-  status: string;
-}
-
-interface MaintenanceRequest {
-  property_id: number;
-  unit_id: string;
-  created_by: string;
-  assigned_staff_id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-}
-
-interface Invoice {
-  tenant_id: string;
-  amount: number;
-  due_data: string;
-  status: string;
-  type: string;
-}
-
-interface Message {
-  sender_id: string;
-  receiver_id: string;
-  is_read: string;
-}
-
-// Delete all data in correct order (respecting foreign key constraints)
 async function deleteAllData() {
   console.log('🗑️  Deleting all existing data...');
   
   try {
-    // Delete in reverse dependency order (children first, then parents)
-    const { error: messagesError } = await supabase.from('messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (messagesError) console.warn('Warning deleting messages:', messagesError.message);
-    
-    const { error: invoicesError } = await supabase.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (invoicesError) console.warn('Warning deleting invoices:', invoicesError.message);
-    
-    const { error: maintenanceError } = await supabase.from('maintainance_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (maintenanceError) console.warn('Warning deleting maintenance requests:', maintenanceError.message);
-    
-    const { error: tenantsError } = await supabase.from('tenants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (tenantsError) console.warn('Warning deleting tenants:', tenantsError.message);
-    
-    const { error: staffError } = await supabase.from('staff').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (staffError) console.warn('Warning deleting staff:', staffError.message);
-    
-    const { error: unitsError } = await supabase.from('units').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (unitsError) console.warn('Warning deleting units:', unitsError.message);
-    
-    const { error: propertiesError } = await supabase.from('properties').delete().neq('id', 0);
-    if (propertiesError) console.warn('Warning deleting properties:', propertiesError.message);
-    
-    const { error: profilesError } = await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (profilesError) console.warn('Warning deleting profiles:', profilesError.message);
-    
+    // Delete in reverse dependency order
+    await supabase.from('messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('payments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('maintenance_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('maintenance_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('staff').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('tenants').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('units').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('properties').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('user_roles').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
     // Delete auth users
     const { data: users, error: listError } = await adminSupabase.auth.admin.listUsers();
     if (!listError && users) {
       for (const user of users.users) {
-        await adminSupabase.auth.admin.deleteUser(user.id);
+        // Only delete seed users to avoid wiping everything if running against a mixed env
+        if (user.email?.startsWith('seed_')) {
+             await adminSupabase.auth.admin.deleteUser(user.id);
+        }
       }
-      console.log(`✅ Deleted ${users.users.length} auth users`);
+      console.log(`✅ Cleaned up old seed auth users`);
     }
     
     console.log('✅ All data deleted successfully');
   } catch (error) {
     console.error('Error deleting data:', error);
-    throw error;
+    // Don't throw, just continue. Tables might not exist or be empty.
   }
 }
 
-// Create auth users first (required for profiles foreign key)
-async function createAuthUsers(count: number): Promise<string[]> {
-  console.log(`🔐 Creating ${count} auth users...`);
-  const userIds: string[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    // Use unique emails to avoid conflicts
-    const email = `seed_${Date.now()}_${i}_${faker.internet.email()}`;
-    const password = faker.internet.password({ length: 12 });
-    
-    const { data, error } = await adminSupabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Auto-confirm email for seed data
+async function createOrganization() {
+    console.log('🏢 Creating Organization...');
+    const { data, error } = await supabase.from('organizations').insert({
+        name: faker.company.name() + " Properties",
+    }).select().single();
+
+    if (error) throw error;
+    console.log(`✅ Created Organization: ${data.name}`);
+    return data;
+}
+
+async function createAuthUser(role: UserRole, orgId: string, staffRole?: StaffRole): Promise<SeedUser> {
+    const email = `seed_${role}_${Date.now()}_${faker.number.int(1000)}@example.com`;
+    const password = 'password123';
+    const fullName = faker.person.fullName();
+
+    const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName, role: role }
     });
+
+    if (authError) throw authError;
+    if (!authData.user) throw new Error("No user returned");
+
+    return {
+        id: authData.user.id,
+        email,
+        fullName,
+        role,
+        staffRole
+    };
+}
+
+async function seedProfilesAndRoles(users: SeedUser[], orgId: string) {
+    console.log(`👥 Seeding ${users.length} profiles and roles...`);
     
-    if (error) {
-      console.error(`Error creating auth user ${i + 1}:`, error);
-      throw error;
+    // Create Profiles
+    const profiles = users.map(u => ({
+        id: u.id,
+        organization_id: orgId,
+        email: u.email,
+        full_name: u.fullName,
+        avatar_url: faker.image.avatar(),
+    }));
+
+    const { error: profileError } = await supabase.from('profiles').insert(profiles);
+    if (profileError) {
+        console.error("Profile Error", profileError);
+        throw profileError;
     }
+
+    // Create User Roles
+    const userRoles = users.map(u => ({
+        user_id: u.id,
+        user_role: u.role
+    }));
     
-    if (data?.user) {
-      userIds.push(data.user.id);
+    const { error: roleError } = await supabase.from('user_roles').insert(userRoles);
+    if (roleError) throw roleError;
+
+    // Create Staff Entries
+    const staffUsers = users.filter(u => u.role === 'staff');
+    if (staffUsers.length > 0) {
+        const staffEntries = staffUsers.map(u => ({
+            user_id: u.id,
+            role: u.staffRole || 'manager',
+            status: 'active' as const,
+            phone_number: faker.phone.number(),
+        }));
+        const { error: staffError } = await supabase.from('staff').insert(staffEntries);
+        if (staffError) throw staffError;
     }
-  }
-  
-  console.log(`✅ Created ${userIds.length} auth users`);
-  return userIds;
+
+    console.log(`✅ Created profiles and roles`);
 }
 
-// Generate and insert profiles
-async function seedProfiles(userIds: string[]): Promise<Profile[]> {
-  console.log(`👥 Creating ${userIds.length} profiles...`);
-  const profiles: Profile[] = [];
-  
-  for (let i = 0; i < userIds.length; i++) {
-    const role = faker.helpers.arrayElement(['tenant', 'staff', 'admin', 'manager']);
-    profiles.push({
-      id: userIds[i], // Use the auth user ID
-      full_name: faker.person.fullName(),
-      email: faker.internet.email(),
-      role: role,
-      avatar_url: faker.image.avatar(),
-    });
-  }
-  
-  const { data, error } = await supabase.from('profiles').insert(profiles).select();
-  
-  if (error) {
-    console.error('Error inserting profiles:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} profiles`);
-  return profiles;
-}
+async function seedProperties(orgId: string) {
+    console.log(`🏠 Creating ${CONFIG.NUM_PROPERTIES} properties...`);
+    const properties = [];
 
-// Generate and insert properties
-async function seedProperties(): Promise<Property[]> {
-  console.log(`🏢 Creating ${NUM_PROPERTIES} properties...`);
-  const properties: Property[] = [];
-  
-  for (let i = 0; i < NUM_PROPERTIES; i++) {
-    const propertyType = faker.helpers.arrayElement(['apartment', 'condo', 'house', 'townhouse']);
-    const totalUnits = NUM_UNITS_PER_PROPERTY;
-    
-    properties.push({
-      name: `${faker.location.buildingNumber()} ${faker.location.street()} ${propertyType}`,
-      address: faker.location.streetAddress({ useFullAddress: true }),
-      type: propertyType,
-      image_url: faker.image.urlLoremFlickr({ category: 'building' }),
-      total_units: totalUnits,
-    });
-  }
-  
-  const { data, error } = await supabase.from('properties').insert(properties).select();
-  
-  if (error) {
-    console.error('Error inserting properties:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} properties`);
-  return data || [];
-}
-
-// Generate and insert units
-async function seedUnits(properties: Property[]): Promise<Unit[]> {
-  console.log(`🏠 Creating units for properties...`);
-  const units: Unit[] = [];
-  
-  for (const property of properties) {
-    for (let i = 0; i < property.total_units; i++) {
-      units.push({
-        id: faker.string.uuid(),
-        property_id: property.id,
-      });
+    for(let i=0; i<CONFIG.NUM_PROPERTIES; i++) {
+        properties.push({
+            organization_id: orgId,
+            name: `${faker.location.streetAddress()} Apartments`,
+            address: faker.location.streetAddress({ useFullAddress: true }),
+            type: faker.helpers.arrayElement(['residential', 'commercial'] as const),
+            total_units: CONFIG.NUM_UNITS_PER_PROPERTY,
+            image_url: faker.image.urlLoremFlickr({ category: 'apartment,building' })
+        });
     }
-  }
-  
-  const { data, error } = await supabase.from('units').insert(units).select();
-  
-  if (error) {
-    console.error('Error inserting units:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} units`);
-  return data || [];
+
+    const { data, error } = await supabase.from('properties').insert(properties).select();
+    if (error) throw error;
+    console.log(`✅ Created ${data.length} properties`);
+    return data;
 }
 
-// Generate and insert staff
-async function seedStaff(profiles: Profile[]): Promise<Staff[]> {
-  console.log(`👨‍💼 Creating ${NUM_STAFF} staff members...`);
-  const staffProfiles = profiles.filter(p => p.role === 'staff' || p.role === 'admin' || p.role === 'manager').slice(0, NUM_STAFF);
-  const staff: Staff[] = [];
-  
-  for (const profile of staffProfiles) {
-    staff.push({
-      id: profile.id,
-      phone_number: parseInt(faker.phone.number('##########').replace(/\D/g, '').slice(0, 10)),
-      specialization: faker.helpers.arrayElement(['plumbing', 'electrical', 'hvac', 'general', 'carpentry', 'painting']),
-      status: faker.helpers.arrayElement(['active', 'inactive', 'on_leave']),
-    });
-  }
-  
-  const { data, error } = await supabase.from('staff').insert(staff).select();
-  
-  if (error) {
-    console.error('Error inserting staff:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} staff members`);
-  return data || [];
-}
-
-// Generate and insert tenants
-async function seedTenants(profiles: Profile[], units: Unit[]): Promise<Tenant[]> {
-  console.log(`🏘️  Creating ${NUM_TENANTS} tenants...`);
-  const tenantProfiles = profiles.filter(p => p.role === 'tenant').slice(0, NUM_TENANTS);
-  const tenants: Tenant[] = [];
-  
-  // unit_id references units(id) which is uuid
-  const availableUnitIds = units.map(u => u.id);
-  
-  for (const profile of tenantProfiles) {
-    const leaseStart = faker.date.past({ years: 2 });
-    const leaseEnd = faker.date.future({ years: 1, refDate: leaseStart });
+async function seedUnits(properties: any[]) {
+    console.log(`🚪 Creating units...`);
+    const units = [];
     
-    tenants.push({
-      id: profile.id,
-      unit_id: faker.helpers.arrayElement(availableUnitIds),
-      lease_start: leaseStart.toISOString().split('T')[0],
-      lease_end: leaseEnd.toISOString().split('T')[0],
-      status: faker.helpers.arrayElement(['active', 'inactive', 'pending']),
-    });
-  }
-  
-  const { data, error } = await supabase.from('tenants').insert(tenants).select();
-  
-  if (error) {
-    console.error('Error inserting tenants:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} tenants`);
-  return data || [];
+    for (const prop of properties) {
+        for(let i=1; i<=prop.total_units; i++) {
+            units.push({
+                property_id: prop.id,
+                unit_number: i * 100 + faker.number.int({ min: 1, max: 20 })
+            });
+        }
+    }
+
+    const { data, error } = await supabase.from('units').insert(units).select();
+    if (error) throw error;
+    console.log(`✅ Created ${data.length} units`);
+    return data;
 }
 
-// Generate and insert maintenance requests
-async function seedMaintenanceRequests(
-  properties: Property[],
-  units: Unit[],
-  profiles: Profile[],
-  staff: Staff[]
-): Promise<void> {
-  console.log(`🔧 Creating ${NUM_MAINTENANCE_REQUESTS} maintenance requests...`);
-  const requests: MaintenanceRequest[] = [];
-  
-  const tenantProfiles = profiles.filter(p => p.role === 'tenant');
-  
-  for (let i = 0; i < NUM_MAINTENANCE_REQUESTS; i++) {
-    const property = faker.helpers.arrayElement(properties);
-    const propertyUnits = units.filter(u => u.property_id === property.id);
-    const unit = propertyUnits.length > 0 ? faker.helpers.arrayElement(propertyUnits) : faker.helpers.arrayElement(units);
+async function seedTenants(tenantUsers: SeedUser[], units: any[]) {
+    console.log(`🤝 Assigning tenants to units...`);
+    const tenants = [];
+    const availableUnits = [...units]; // copy
+
+    for (const user of tenantUsers) {
+        if (availableUnits.length === 0) break;
+        const unitIndex = faker.number.int({ min: 0, max: availableUnits.length - 1 });
+        const unit = availableUnits.splice(unitIndex, 1)[0];
+
+        tenants.push({
+            user_id: user.id,
+            unit_id: unit.id,
+            status: faker.helpers.arrayElement(['active', 'pending'] as const),
+            lease_start: faker.date.past().toISOString(),
+            lease_end: faker.date.future().toISOString()
+        });
+    }
+
+    const { data, error } = await supabase.from('tenants').insert(tenants).select();
+    if (error) throw error;
+    console.log(`✅ Created ${data.length} tenants`);
+    return data;
+}
+
+async function seedMaintenance(orgId: string, properties: any[], units: any[], tenantUsers: SeedUser[], staffUsers: SeedUser[]) {
+    console.log(`🛠️ Creating maintenance requests...`);
+    const requests = [];
     
-    requests.push({
-      property_id: property.id,
-      unit_id: unit.id,
-      created_by: faker.helpers.arrayElement(tenantProfiles).id,
-      assigned_staff_id: faker.helpers.arrayElement(staff).id,
-      title: faker.helpers.arrayElement([
-        'Leaky faucet',
-        'Broken AC unit',
-        'Electrical outlet not working',
-        'Door lock malfunction',
-        'Water heater issue',
-        'Window repair needed',
-        'Plumbing backup',
-        'Heating system problem',
-      ]),
-      description: faker.lorem.paragraph(),
-      status: faker.helpers.arrayElement(['pending', 'in_progress', 'completed', 'cancelled']),
-      priority: faker.helpers.arrayElement(['low', 'medium', 'high', 'urgent']),
-    });
-  }
-  
-  const { data, error } = await supabase.from('maintainance_requests').insert(requests).select();
-  
-  if (error) {
-    console.error('Error inserting maintenance requests:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} maintenance requests`);
+    for(let i=0; i<CONFIG.NUM_REQUESTS; i++) {
+        const prop = faker.helpers.arrayElement(properties);
+        // Find a unit for this property
+        const propUnits = units.filter(u => u.property_id === prop.id);
+        const unit = faker.helpers.arrayElement(propUnits);
+        const creator = faker.helpers.arrayElement(tenantUsers);
+        const assignee = faker.helpers.arrayElement(staffUsers);
+
+        if (!unit) continue;
+
+        requests.push({
+            organization_id: orgId,
+            property_id: prop.id,
+            unit_id: unit.id,
+            created_by: creator.id,
+            assigned_staff_id: assignee.id,
+            title: faker.helpers.arrayElement(['Leaky Faucet', 'Broken AC', 'Power Outage', 'Internet Issues', 'Heater Broken']),
+            description: faker.lorem.sentence(),
+            status: faker.helpers.arrayElement(['open', 'in_progress', 'resolved', 'closed'] as const),
+            priority: faker.helpers.arrayElement(['low', 'medium', 'high', 'urgent'] as const)
+        });
+    }
+
+    const { data, error } = await supabase.from('maintenance_requests').insert(requests).select();
+    if (error) throw error;
+    console.log(`✅ Created ${data.length} maintenance requests`);
 }
 
-// Generate and insert invoices
-async function seedInvoices(profiles: Profile[]): Promise<void> {
-  console.log(`💰 Creating ${NUM_INVOICES} invoices...`);
-  const invoices: Invoice[] = [];
-  
-  const tenantProfiles = profiles.filter(p => p.role === 'tenant');
-  
-  for (let i = 0; i < NUM_INVOICES; i++) {
-    invoices.push({
-      tenant_id: faker.helpers.arrayElement(tenantProfiles).id,
-      amount: faker.number.int({ min: 500, max: 5000 }) * 100, // in cents
-      due_data: faker.date.future({ years: 1 }).toISOString().split('T')[0],
-      status: faker.helpers.arrayElement(['pending', 'paid', 'overdue', 'cancelled']),
-      type: faker.helpers.arrayElement(['rent', 'utilities', 'maintenance', 'late_fee', 'deposit']),
-    });
-  }
-  
-  const { data, error } = await supabase.from('invoices').insert(invoices).select();
-  
-  if (error) {
-    console.error('Error inserting invoices:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} invoices`);
+async function seedInvoices(orgId: string, tenants: any[], properties: any[], units: any[]) {
+    console.log(`💰 Creating invoices...`);
+    const invoices = [];
+
+    for(let i=0; i<CONFIG.NUM_INVOICES; i++) {
+        const tenant = faker.helpers.arrayElement(tenants);
+        // We need property_id for this tenant's unit
+        const unit = units.find(u => u.id === tenant.unit_id);
+        if(!unit) continue;
+
+        invoices.push({
+            organization_id: orgId,
+            tenant_id: tenant.user_id, // This is actually user_id in schema? No, tenants table has ID? Check schema.
+            // Wait, database.types.ts says: invoices -> tenant_id references profiles(id).
+            // tenants table: user_id references profiles(id).
+            // So tenant_id in invoices should be the profile id (which is user_id).
+            property_id: unit.property_id,
+            unit_id: unit.id,
+            amount_kobo: faker.number.int({ min: 100000, max: 500000 }), // 1000.00 to 5000.00
+            status: faker.helpers.arrayElement(['draft', 'issued', 'paid', 'overdue'] as const),
+            due_date: faker.date.future().toISOString()
+        });
+    }
+
+     const { data, error } = await supabase.from('invoices').insert(invoices).select();
+     if (error) {
+         console.error("Invoice Error", error);
+         throw error;
+     } 
+     console.log(`✅ Created ${data.length} invoices`);
 }
 
-// Generate and insert messages
-async function seedMessages(profiles: Profile[]): Promise<void> {
-  console.log(`💬 Creating ${NUM_MESSAGES} messages...`);
-  const messages: Message[] = [];
-  
-  for (let i = 0; i < NUM_MESSAGES; i++) {
-    const sender = faker.helpers.arrayElement(profiles);
-    const receiver = faker.helpers.arrayElement(profiles.filter(p => p.id !== sender.id));
-    
-    messages.push({
-      sender_id: sender.id,
-      receiver_id: receiver.id,
-      is_read: faker.helpers.arrayElement(['true', 'false']),
-    });
-  }
-  
-  const { data, error } = await supabase.from('messages').insert(messages).select();
-  
-  if (error) {
-    console.error('Error inserting messages:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Created ${data?.length || 0} messages`);
-}
 
-// Main seeding function
-async function seedDatabase() {
-  console.log('🌱 Starting database seeding...\n');
-  
-  try {
-    // Delete all existing data
+// Main Execution
+async function seed() {
+    console.log('🌱 Starting Seed...');
     await deleteAllData();
-    console.log('');
+
+    // 1. Create Organization
+    const org = await createOrganization();
     
-    // Seed in dependency order
-    // First create auth users (required for profiles foreign key)
-    const userIds = await createAuthUsers(NUM_PROFILES);
-    console.log('');
+    // 2. Prepare Users
+    const users: SeedUser[] = [];
     
-    // Then create profiles with those user IDs
-    const profiles = await seedProfiles(userIds);
-    console.log('');
-    
-    const properties = await seedProperties();
-    console.log('');
-    
+    // Admin
+    for(let i=0; i<CONFIG.NUM_ADMINS; i++) users.push(await createAuthUser('admin', org.id));
+    // Owner
+    for(let i=0; i<CONFIG.NUM_OWNERS; i++) users.push(await createAuthUser('owner', org.id));
+    // Staff (Manager)
+    for(let i=0; i<CONFIG.NUM_MANAGERS; i++) users.push(await createAuthUser('staff', org.id, 'manager'));
+    // Staff (Maintenance)
+    for(let i=0; i<CONFIG.NUM_MAINTENANCE_STAFF; i++) users.push(await createAuthUser('staff', org.id, faker.helpers.arrayElement(['plumbing', 'electrical', 'security'])));
+    // Tenants
+    for(let i=0; i<CONFIG.NUM_TENANTS; i++) users.push(await createAuthUser('tenant', org.id));
+
+    // 3. Create Profiles and Roles
+    await seedProfilesAndRoles(users, org.id);
+
+    // 4. Create Properties
+    const properties = await seedProperties(org.id);
+
+    // 5. Create Units
     const units = await seedUnits(properties);
-    console.log('');
+
+    // 6. Assign Tenants (Create Tenant Entries)
+    const tenantUsers = users.filter(u => u.role === 'tenant');
+    const tenants = await seedTenants(tenantUsers, units);
+
+    // 7. Maintenance Requests
+    const staffUsers = users.filter(u => u.role === 'staff');
+    await seedMaintenance(org.id, properties, units, tenantUsers, staffUsers);
+
+    // 8. Invoices
+    await seedInvoices(org.id, tenants, properties, units);
     
-    const staff = await seedStaff(profiles);
-    console.log('');
-    
-    const tenants = await seedTenants(profiles, units);
-    console.log('');
-    
-    await seedMaintenanceRequests(properties, units, profiles, staff);
-    console.log('');
-    
-    await seedInvoices(profiles);
-    console.log('');
-    
-    await seedMessages(profiles);
-    console.log('');
-    
-    console.log('🎉 Database seeding completed successfully!');
-  } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    process.exit(1);
-  }
+    // Output login info
+    console.log('\n✨ Seed Complete! Here are some test accounts you can use:');
+    console.log('---------------------------------------------------------');
+    console.log(`🏢 Owner:    ${users.find(u => u.role === 'owner')?.email} / password123`);
+    console.log(`👨‍💼 Manager:  ${users.find(u => u.role === 'staff' && u.staffRole === 'manager')?.email} / password123`);
+    console.log(`🔧 Staff:    ${users.find(u => u.role === 'staff' && u.staffRole !== 'manager')?.email} / password123`);
+    console.log(`🏠 Tenant:   ${users.find(u => u.role === 'tenant')?.email} / password123`);
+    console.log('---------------------------------------------------------');
 }
 
-// Run the seeding
-seedDatabase();
+seed().catch(err => {
+    console.error("❌ Seed Failed:", err);
+    process.exit(1);
+});
