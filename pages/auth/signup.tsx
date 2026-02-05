@@ -20,7 +20,7 @@ export default function Signup() {
     password: '',
     role: 'owner' as UserRole,
     organizationName: '',
-    organizationId: '', // For joining existing orgs
+    inviteCode: '', // For staff/tenant onboarding
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -55,10 +55,20 @@ export default function Signup() {
 
       if (!authData.user) throw new Error('No user data returned');
 
-      let orgId = formData.organizationId;
+      let orgId = '';
 
       // 2. Create Organization (if Owner)
       if (formData.role === 'owner') {
+        // 2a. Assign Role first (allows org creation even if profile exists)
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            user_role: formData.role,
+          });
+
+        if (roleError) throw roleError;
+
          const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .insert({
@@ -69,39 +79,41 @@ export default function Signup() {
           
          if (orgError) throw orgError;
          orgId = orgData.id;
+      }
+
+      if (formData.role === 'owner') {
+        // 3. Create Profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: formData.email,
+            full_name: formData.fullName,
+            organization_id: orgId,
+            role: formData.role,
+          });
+          
+        if (profileError) {
+          console.warn("Profile creation error (might be handled by trigger):", profileError);
+        }
+
       } else {
-        // Validation: Verify Org ID exists
-        if (!orgId) throw new Error("Organization ID is required");
-        // Optional: Check if org exists
+        if (!formData.inviteCode) throw new Error("Invite code is required");
+        const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
+          'redeem-invite',
+          {
+            body: {
+              code: formData.inviteCode,
+              full_name: formData.fullName,
+              email: formData.email,
+            },
+          }
+        );
+        if (inviteError) throw inviteError;
+        if (!inviteData?.success) {
+          throw new Error(inviteData?.error || "Invite redemption failed");
+        }
       }
-
-      // 3. Create Profile
-      // Note: Triggers might handle this, but explicit creation ensures data integrity if triggers aren't set up
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.fullName,
-          organization_id: orgId,
-        });
-        
-      if (profileError) {
-         // If a trigger already created the profile, this might fail with duplicate key. 
-         // We can try to update instead if that happens, or ignore if specific error.
-         // For now, assume we need to create it.
-         console.warn("Profile creation error (might be handled by trigger):", profileError);
-      }
-
-      // 4. Assign Role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          user_role: formData.role,
-        });
-
-      if (roleError) throw roleError;
 
       // Success
       navigate('/');
@@ -289,22 +301,22 @@ export default function Signup() {
               </div>
             ) : (
                <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-300">Organization / Invite ID</label>
+                <label className="text-sm font-medium text-slate-300">Invite Code</label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                     <Key className="w-5 h-5" />
                   </div>
                   <input
                     type="text"
-                    name="organizationId"
+                    name="inviteCode"
                     required
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                    placeholder="e.g. 123e4567-e89b..."
-                    value={formData.organizationId}
+                    placeholder="e.g. ESTIFY-STAFF-4KZ2"
+                    value={formData.inviteCode}
                     onChange={handleChange}
                   />
                 </div>
-                 <p className="text-xs text-slate-500">Enter the ID provided by your property manager.</p>
+                 <p className="text-xs text-slate-500">Enter the code provided by your property manager.</p>
               </div>
             )}
 

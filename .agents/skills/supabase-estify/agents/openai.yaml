@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supabase (Estify)"
+  short_description: "Project-specific Supabase workflows"
+  default_prompt: "Use $supabase-estify to update Supabase schema and client usage."
