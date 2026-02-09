@@ -17,6 +17,8 @@ import { AuthStateProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { AppLayout } from "./components/layouts/AppLayout";
 import { mapDbRoleToUserRole } from "./utils/auth";
+import { Properties } from "./pages/Properties";
+import { PropertyDetails } from "./pages/PropertyDetails";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,9 +95,8 @@ const App: React.FC = () => {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardRoute />} />
 
-              {/* Paused: RLS not configured yet for properties/units/tenants/staff */}
-              {/* <Route path="/properties" element={<Properties />} /> */}
-              {/* <Route path="/properties/:id" element={<PropertyDetails />} /> */}
+              <Route path="properties" element={<Properties />} />
+              <Route path="properties/:id" element={<PropertyDetails />} />
 
               {/* Paused: RLS not configured yet for tenants */}
               {/* <Route path="/tenants" element={<Tenants />} /> */}

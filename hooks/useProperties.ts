@@ -50,7 +50,13 @@ export function useCreateProperty() {
   const queryClient = useQueryClient();
 
   const { isPending: isCreating, mutate: createProperty } = useMutation({
-    mutationFn: (newProperty) => createEditProperty(newProperty),
+    mutationFn: ({
+      data,
+      organizationId,
+    }: {
+      data: Parameters<typeof createEditProperty>[0];
+      organizationId: string;
+    }) => createEditProperty(data, organizationId),
     onSuccess: () => {
       toast.success("New property successfully created");
       queryClient.invalidateQueries({ queryKey: ["properties"] });
@@ -65,8 +71,15 @@ export function useEditProperty() {
   const queryClient = useQueryClient();
 
   const { isPending: isEditing, mutate: editProperty } = useMutation({
-    mutationFn: ({ newPropertyData, id }: { newPropertyData: any; id: string }) =>
-      createEditProperty(newPropertyData, id),
+    mutationFn: ({
+      data,
+      id,
+      organizationId,
+    }: {
+      data: Parameters<typeof createEditProperty>[0];
+      id: string;
+      organizationId: string;
+    }) => createEditProperty(data, organizationId, id),
     onSuccess: () => {
       toast.success("Property successfully updated");
       queryClient.invalidateQueries({ queryKey: ["properties"] });

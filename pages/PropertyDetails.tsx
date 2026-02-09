@@ -1,16 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
 import { Property, Tenant, Staff } from '../types';
-import { ChevronLeft, MapPin, Building2, Users, ArrowUpRight, Plus, Mail, Edit2, Trash2, X, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, MapPin, Plus, Edit2, Trash2, X, ShieldCheck } from 'lucide-react';
 import { useProperty, useEditProperty, useDeleteProperty } from '../hooks/useProperties';
 import { useTenants } from '../hooks/useTenants';
 import { useStaff } from '../hooks/useStaff';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
+import { useAuth } from '../contexts/AuthContext';
+import { useOutsideClick } from '../hooks/useOutsideClick';
 
 export const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   
   const { property, isPending: isPropertyLoading } = useProperty(id!);
   const { tenants: allTenants = [], isPending: isTenantsLoading } = useTenants();
@@ -21,40 +25,67 @@ export const PropertyDetails: React.FC = () => {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    type: 'Residential' as any,
-    units: 0,
-    occupancy: 0,
-    image: ''
+  const [formError, setFormError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<{
+    name: string;
+    address: string;
+    type: 'residential' | 'commercial';
+    total_units: number;
+    image_url: string;
+  }>({
+    defaultValues: {
+      name: '',
+      address: '',
+      type: 'residential',
+      total_units: 0,
+      image_url: '',
+    },
   });
 
   useEffect(() => {
     if (property) {
-      setFormData({
+      reset({
         name: property.name,
         address: property.address,
         type: property.type,
-        units: property.total_units,
-        occupancy: property.occupancy,
-        image: property.image_url || ''
+        total_units: property.total_units,
+        image_url: property.image_url || '',
       });
     }
-  }, [property]);
+  }, [property, reset]);
 
-  const tenants = allTenants.filter(t => t.units?.properties?.name === property?.name);
+  useOutsideClick(modalRef, () => setIsEditModalOpen(false), isEditModalOpen);
+
+  const tenants = allTenants.filter(
+    (t) => t.units?.properties?.name === property?.name,
+  );
   const staff = allStaff; // Filtering logic can be added if assignments are available in DB
 
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (id) {
-      editProperty({ newPropertyData: formData, id }, {
-        onSuccess: () => setIsEditModalOpen(false)
-      });
+  const handleUpdate = async (values: {
+    name: string;
+    address: string;
+    type: 'residential' | 'commercial';
+    total_units: number;
+    image_url: string;
+  }) => {
+    if (!id) return;
+    if (!profile?.organization_id) {
+      setFormError('You need an organization before editing properties.');
+      return;
     }
+    editProperty(
+      { data: values, id, organizationId: profile.organization_id },
+      {
+        onSuccess: () => setIsEditModalOpen(false),
+      },
+    );
   };
 
   const handleDelete = async () => {
@@ -124,8 +155,8 @@ export const PropertyDetails: React.FC = () => {
                 <div className="space-y-4">
                   {tenants.map(t => (
                     <div 
-                      key={t.user_id} 
-                      onClick={() => navigate(`/tenants/${t.user_id}`)}
+                      key={t.id} 
+                      onClick={() => navigate(`/tenants/${t.id}`)}
                       className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
@@ -160,12 +191,12 @@ export const PropertyDetails: React.FC = () => {
                 <div className="space-y-4">
                   {staff.map(s => (
                     <div 
-                      key={s.user_id} 
-                      onClick={() => navigate(`/staff/${s.user_id}`)}
+                      key={s.id} 
+                      onClick={() => navigate(`/staff/${s.id}`)}
                       className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
-                        <img src={s.profiles?.avatar_url || `https://picsum.photos/seed/${s.user_id}/100`} className="w-10 h-10 rounded-xl object-cover" />
+                        <img src={s.profiles?.avatar_url || `https://picsum.photos/seed/${s.id}/100`} className="w-10 h-10 rounded-xl object-cover" />
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{s.profiles?.full_name}</p>
                           <p className="text-[10px] text-gray-500 uppercase font-bold">{s.role}</p>
@@ -222,38 +253,73 @@ export const PropertyDetails: React.FC = () => {
       </div>
 
       {/* Edit Modal */}
-      {isEditModalOpen && (
+          {isEditModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div ref={modalRef} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <h2 className="text-xl font-bold text-gray-900">Edit Property</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-400"><X size={20}/></button>
             </div>
-            <form onSubmit={handleUpdate} className="p-8 space-y-4">
+            <form onSubmit={handleSubmit(handleUpdate)} className="p-8 space-y-4">
+              {formError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {formError}
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Property Name</label>
-                <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                  {...register('name', { required: 'Property name is required' })}
+                />
+                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Address</label>
-                <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                  {...register('address', { required: 'Address is required' })}
+                />
+                {errors.address && <p className="text-sm text-red-500">{errors.address.message}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type</label>
-                  <select className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} >
-                    <option>Residential</option>
-                    <option>Commercial</option>
-                    <option>Industrial</option>
+                  <select
+                    className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                    {...register('type')}
+                  >
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Units</label>
-                  <input type="number" className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm" value={formData.units} onChange={e => setFormData({...formData, units: parseInt(e.target.value)})} />
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                    {...register('total_units', {
+                      valueAsNumber: true,
+                      min: { value: 0, message: 'Total units must be 0 or more' },
+                    })}
+                  />
+                  {errors.total_units && (
+                    <p className="text-sm text-red-500">{errors.total_units.message}</p>
+                  )}
                 </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Image URL</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                  {...register('image_url')}
+                />
+              </div>
               <div className="pt-4">
-                <button type="submit" className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20">
+                <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 disabled:opacity-70">
                   Save Changes
                 </button>
               </div>
