@@ -11,7 +11,7 @@ export function useLogin() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -20,9 +20,16 @@ export function useLogin() {
 
     if (error) {
       setError(error.message);
+      return { error };
     }
 
-    return { error };
+    if (!data.session || !data.user) {
+      const sessionError = new Error("Missing session after login");
+      setError(sessionError.message);
+      return { error: sessionError };
+    }
+
+    return { error: null };
   };
 
   return { signIn, loading, error, clearError };

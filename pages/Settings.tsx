@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOrganization, useUpdateOrganization } from '../hooks/useOrganization';
 
 export const Settings: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { authUser, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const { organization, isPending: isOrgLoading } = useOrganization();
 
@@ -52,7 +52,7 @@ export const Settings: React.FC = () => {
                 <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'User')}`} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-3xl object-cover" />
                 <div className="text-center sm:text-left">
                   <h3 className="text-lg md:text-xl font-bold text-gray-900">{profile?.full_name || 'User'}</h3>
-                  <p className="text-xs md:text-sm text-gray-500">{profile?.email} • Since {new Date(user?.created_at || Date.now()).toLocaleDateString()}</p>
+                  <p className="text-xs md:text-sm text-gray-500">{profile?.email} • Since {new Date(authUser?.created_at || Date.now()).toLocaleDateString()}</p>
                   <div className="flex justify-center sm:justify-start gap-2 mt-4">
                     <button className="px-3 py-1.5 bg-gray-50 text-[10px] font-bold rounded-xl hover:bg-gray-100 transition-colors">Change Photo</button>
                     {/* <button className="px-3 py-1.5 text-red-500 text-[10px] font-bold hover:bg-red-50 rounded-xl transition-colors">Remove</button> */}
@@ -63,7 +63,7 @@ export const Settings: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                 <InputGroup label="Full Name" value={profile?.full_name || ''} />
                 <InputGroup label="Email Address" value={profile?.email || ''} />
-                <InputGroup label="User ID" value={user?.id || ''} />
+                <InputGroup label="User ID" value={authUser?.id || ''} />
               </div>
 
               <div className="pt-6 border-t border-gray-50">

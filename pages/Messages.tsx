@@ -6,7 +6,7 @@ import { useContacts, useChatHistory, useSendMessage } from '../hooks/useMessage
 import { useAuth } from '../contexts/AuthContext';
 
 export const Messages: React.FC = () => {
-  const { user } = useAuth();
+  const { authUser } = useAuth();
   const { contacts = [], isPending: isContactsLoading } = useContacts();
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const { history = [], isPending: isChatLoading } = useChatHistory(selectedContactId);
@@ -27,7 +27,7 @@ export const Messages: React.FC = () => {
     id: msg.id,
     text: msg.content,
     time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    isMine: msg.sender_id === user?.id
+    isMine: msg.sender_id === authUser?.id
   }));
 
   const handleContactSelect = (contact: any) => {

@@ -13,9 +13,16 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 
+export type NavItem = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  roles: UserRole[];
+};
+
 export const PAGE_SIZE = 10;
 
-export const NAV_ITEMS = [
+export const NAV_ITEMS: NavItem[] = [
   { 
     id: 'dashboard', 
     label: 'Dashboard', 
@@ -71,3 +78,7 @@ export const NAV_ITEMS = [
     roles: [UserRole.PROPERTY_MANAGER, UserRole.COMPANY_ADMIN, UserRole.MAINTENANCE, UserRole.TENANT] 
   },
 ];
+
+export function getNavItemsForRole(role: UserRole) {
+  return NAV_ITEMS.filter((item) => item.roles.includes(role));
+}

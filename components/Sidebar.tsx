@@ -1,20 +1,16 @@
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { UserRole } from '../types';
-import { NAV_ITEMS } from '../utils/constants';
+import { NavLink } from 'react-router-dom';
+import type { NavItem } from '../utils/constants';
 import { X, LogOut } from 'lucide-react';
 
 interface SidebarProps {
-  role: UserRole;
+  items: NavItem[];
   isOpen: boolean;
   setIsOpen: (val: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ role, isOpen, setIsOpen }) => {
-  const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(role));
-  const location = useLocation();
-
+export const Sidebar: React.FC<SidebarProps> = ({ items, isOpen, setIsOpen }) => {
   // Close sidebar on navigation on mobile
   const handleNavClick = () => {
     if (window.innerWidth < 1024) {
@@ -48,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, isOpen, setIsOpen }) => 
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-        {filteredNav.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.id}
             to={`/${item.id}`}
