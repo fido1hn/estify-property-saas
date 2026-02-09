@@ -1,172 +1,127 @@
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import AuthLayout from "../../components/layouts/AuthLayout";
+import {
+  Mail,
+  Lock,
+  User,
+  Building,
+  Loader2,
+  CheckCircle,
+  Briefcase,
+} from "lucide-react";
+import { Database } from "../../types/database.types";
+import { useSignUp } from "../../hooks/useSignUp";
 
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
-import AuthLayout from '../../components/layouts/AuthLayout';
-import { Mail, Lock, User, Building, Loader2, CheckCircle, Briefcase, Key } from 'lucide-react';
-import { Database } from '../../types/database.types';
-
-type UserRole = Database['public']['Enums']['user_role'];
+type UserRole = Database["public"]["Enums"]["user_role"];
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { signUp, completeOwnerSetup, loading, error, clearError } = useSignUp();
   const [step, setStep] = useState(1);
-  
+  const [userId, setUserId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    role: 'owner' as UserRole,
-    organizationName: '',
-    inviteCode: '', // For staff/tenant onboarding
+    role: "",
+    organizationName: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(null);
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<{
+    fullName: string;
+    email: string;
+    password: string;
+  }>();
 
   const selectRole = (role: UserRole) => {
+    if (!userId) return;
     setFormData({ ...formData, role });
     setStep(3);
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const onSubmitStepOne = async (data: {
+    fullName: string;
+    email: string;
+    password: string;
+  }) => {
+    clearError();
+    const { error, userId } = await signUp({
+      fullName: data.fullName,
+      email: data.email,
+      password: data.password,
+    });
 
-    try {
-      // 1. Sign Up User
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            role: formData.role,
-          },
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (!authData.user) throw new Error('No user data returned');
-
-      let orgId = '';
-
-      // 2. Create Organization (if Owner)
-      if (formData.role === 'owner') {
-        // 2a. Assign Role first (allows org creation even if profile exists)
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            user_role: formData.role,
-          });
-
-        if (roleError) throw roleError;
-
-         const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
-            name: formData.organizationName,
-          })
-          .select()
-          .single();
-          
-         if (orgError) throw orgError;
-         orgId = orgData.id;
-      }
-
-      if (formData.role === 'owner') {
-        // 3. Create Profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            full_name: formData.fullName,
-            organization_id: orgId,
-            role: formData.role,
-          });
-          
-        if (profileError) {
-          console.warn("Profile creation error (might be handled by trigger):", profileError);
-        }
-
-      } else {
-        if (!formData.inviteCode) throw new Error("Invite code is required");
-        const { data: inviteData, error: inviteError } = await supabase.functions.invoke(
-          'redeem-invite',
-          {
-            body: {
-              code: formData.inviteCode,
-              full_name: formData.fullName,
-              email: formData.email,
-            },
-          }
-        );
-        if (inviteError) throw inviteError;
-        if (!inviteData?.success) {
-          throw new Error(inviteData?.error || "Invite redemption failed");
-        }
-      }
-
-      // Success
-      navigate('/');
-      
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'An error occurred during sign up');
-    } finally {
-      setLoading(false);
+    if (!error && userId) {
+      setUserId(userId);
+      setStep(2);
     }
   };
 
-  const nextStep = () => {
-    if (step === 1) {
-      if (!formData.fullName || !formData.email || !formData.password) {
-        setError("Please fill in all fields");
-        return;
-      }
-      // Simple email validation
-      if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        setError("Please enter a valid email");
-        return;
-      }
-      setStep(2);
-      setError(null);
+  const handleOrgSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+
+    const { error } = await completeOwnerSetup({
+      userId,
+      role: formData.role as UserRole,
+      organizationName: formData.organizationName,
+    });
+
+    if (!error) {
+      navigate("/");
     }
+  };
+
+  const handleOrgNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, organizationName: e.target.value });
+    clearError();
   };
 
   return (
-    <AuthLayout 
-      title="Create an account" 
-      subtitle={step === 1 ? "Enter your details to get started" : step === 2 ? "Select your account type" : "Finalize your setup"}
-    >
+    <AuthLayout
+      title="Create an account"
+      subtitle={
+        step === 1
+          ? "Enter your details to get started"
+          : step === 2
+            ? "Select your account type"
+            : "Finalize your setup"
+      }>
       <div className="space-y-6">
-         {/* Progress Steps */}
-         <div className="flex justify-center mb-6">
-           <div className="flex items-center space-x-2">
-             <div className={`w-3 h-3 rounded-full ${step >= 1 ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
-             <div className={`w-8 h-1 rounded ${step >= 2 ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
-             <div className={`w-3 h-3 rounded-full ${step >= 2 ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
-             <div className={`w-8 h-1 rounded ${step >= 3 ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
-             <div className={`w-3 h-3 rounded-full ${step >= 3 ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
-           </div>
-         </div>
+        {/* Progress Steps */}
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center space-x-2">
+            <div
+              className={`w-3 h-3 rounded-full ${step >= 1 ? "bg-indigo-500" : "bg-slate-700"}`}></div>
+            <div
+              className={`w-8 h-1 rounded ${step >= 2 ? "bg-indigo-500" : "bg-slate-700"}`}></div>
+            <div
+              className={`w-3 h-3 rounded-full ${step >= 2 ? "bg-indigo-500" : "bg-slate-700"}`}></div>
+            <div
+              className={`w-8 h-1 rounded ${step >= 3 ? "bg-indigo-500" : "bg-slate-700"}`}></div>
+            <div
+              className={`w-3 h-3 rounded-full ${step >= 3 ? "bg-indigo-500" : "bg-slate-700"}`}></div>
+          </div>
+        </div>
 
         {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
         )}
 
         {step === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+          <form
+            onSubmit={handleSubmit(onSubmitStepOne)}
+            className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Full Name</label>
+              <label className="text-sm font-medium text-slate-300">
+                Full Name
+              </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                   <User className="w-5 h-5" />
@@ -174,17 +129,22 @@ export default function Signup() {
                 <input
                   type="text"
                   name="fullName"
-                  required
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
                   placeholder="John Doe"
-                  value={formData.fullName}
-                  onChange={handleChange}
+                  {...register("fullName", {
+                    required: "Full name is required",
+                  })}
                 />
               </div>
+              {errors.fullName && (
+                <p className="text-sm text-red-400">{errors.fullName.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Email</label>
+              <label className="text-sm font-medium text-slate-300">
+                Email
+              </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                   <Mail className="w-5 h-5" />
@@ -192,17 +152,26 @@ export default function Signup() {
                 <input
                   type="email"
                   name="email"
-                  required
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
                   placeholder="name@example.com"
-                  value={formData.email}
-                  onChange={handleChange}
+                  {...register("email", {
+                    required: "Email is required",
+                    pattern: {
+                      value: /\S+@\S+\.\S+/,
+                      message: "Please enter a valid email",
+                    },
+                  })}
                 />
               </div>
+              {errors.email && (
+                <p className="text-sm text-red-400">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Password</label>
+              <label className="text-sm font-medium text-slate-300">
+                Password
+              </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                   <Lock className="w-5 h-5" />
@@ -210,23 +179,28 @@ export default function Signup() {
                 <input
                   type="password"
                   name="password"
-                  required
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
+                  {...register("password", {
+                    required: "Password is required",
+                    minLength: {
+                      value: 8,
+                      message: "Password must be at least 8 characters",
+                    },
+                  })}
                 />
               </div>
+              {errors.password && (
+                <p className="text-sm text-red-400">{errors.password.message}</p>
+              )}
             </div>
 
             <button
-              type="button"
-              onClick={nextStep}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all"
-            >
-              Next Step
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all">
+              {loading ? "Saving..." : "Next Step"}
             </button>
-          </div>
+          </form>
         )}
 
         {step === 2 && (
@@ -234,97 +208,85 @@ export default function Signup() {
             <div className="grid grid-cols-1 gap-4">
               <button
                 type="button"
-                onClick={() => selectRole('owner')}
-                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all"
-              >
+                onClick={() => selectRole("owner")}
+                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all">
                 <div className="p-3 rounded-full bg-slate-900 group-hover:bg-indigo-500/10 mb-3 transition-colors">
                   <Building className="w-8 h-8 text-indigo-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Property Owner</h3>
-                <p className="text-sm text-slate-400 text-center mt-1">I own properties and want to manage tenants and maintenance.</p>
+                <h3 className="text-lg font-semibold text-white">
+                  Property Owner
+                </h3>
+                <p className="text-sm text-slate-400 text-center mt-1">
+                  I own properties and want to manage tenants and maintenance.
+                </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => selectRole('tenant')}
-                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all"
-              >
+                disabled
+                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl opacity-60 cursor-not-allowed">
                 <div className="p-3 rounded-full bg-slate-900 group-hover:bg-indigo-500/10 mb-3 transition-colors">
                   <User className="w-8 h-8 text-indigo-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">Tenant</h3>
-                <p className="text-sm text-slate-400 text-center mt-1">I rent a property and want to pay bills and request repairs.</p>
+                <p className="text-sm text-slate-400 text-center mt-1">
+                  Coming soon
+                </p>
               </button>
-              
-               <button
+
+              <button
                 type="button"
-                onClick={() => selectRole('staff')}
-                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all"
-              >
+                disabled
+                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl opacity-60 cursor-not-allowed">
                 <div className="p-3 rounded-full bg-slate-900 group-hover:bg-indigo-500/10 mb-3 transition-colors">
                   <Briefcase className="w-8 h-8 text-indigo-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">Staff</h3>
-                <p className="text-sm text-slate-400 text-center mt-1">I work for a property management company.</p>
+                <p className="text-sm text-slate-400 text-center mt-1">
+                  Coming soon
+                </p>
               </button>
             </div>
             <button
-               type="button"
-               onClick={() => setStep(1)}
-               className="w-full text-slate-400 hover:text-white mt-4"
-            >
-               Back
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full text-slate-400 hover:text-white mt-4">
+              Back
             </button>
           </div>
         )}
 
         {step === 3 && (
-          <form onSubmit={handleSignup} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            {formData.role === 'owner' ? (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-300">Organization Name</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    <Building className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="text"
-                    name="organizationName"
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                    placeholder="My Property Management Co."
-                    value={formData.organizationName}
-                    onChange={handleChange}
-                  />
+          <form
+            onSubmit={handleOrgSetup}
+            className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">
+                Organization Name
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                  <Building className="w-5 h-5" />
                 </div>
-                <p className="text-xs text-slate-500">This will be the name of your management workspace.</p>
+                <input
+                  type="text"
+                  name="organizationName"
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                  placeholder="My Property Management Co."
+                  value={formData.organizationName}
+                  onChange={handleOrgNameChange}
+                />
               </div>
-            ) : (
-               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-300">Invite Code</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    <Key className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="text"
-                    name="inviteCode"
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                    placeholder="e.g. ESTIFY-STAFF-4KZ2"
-                    value={formData.inviteCode}
-                    onChange={handleChange}
-                  />
-                </div>
-                 <p className="text-xs text-slate-500">Enter the code provided by your property manager.</p>
-              </div>
-            )}
+              <p className="text-xs text-slate-500">
+                This will be the name of your management workspace.
+              </p>
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -338,22 +300,23 @@ export default function Signup() {
               )}
             </button>
             <button
-               type="button"
-               onClick={() => setStep(2)}
-               className="w-full text-slate-400 hover:text-white mt-2"
-            >
-               Back
+              type="button"
+              onClick={() => setStep(2)}
+              className="w-full text-slate-400 hover:text-white mt-2">
+              Back
             </button>
           </form>
         )}
 
         {step === 1 && (
-            <div className="text-center text-sm text-slate-400">
-            Already have an account?{' '}
-            <Link to="/auth/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-                Sign in
+          <div className="text-center text-sm text-slate-400">
+            Already have an account?{" "}
+            <Link
+              to="/auth/login"
+              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+              Sign in
             </Link>
-            </div>
+          </div>
         )}
       </div>
     </AuthLayout>

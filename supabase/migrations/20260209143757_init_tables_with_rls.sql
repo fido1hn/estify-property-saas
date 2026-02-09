@@ -81,7 +81,8 @@ alter table "public"."messages" enable row level security;
   create table "public"."organizations" (
     "id" uuid not null default gen_random_uuid(),
     "name" text not null,
-    "created_at" timestamp with time zone not null default now()
+    "created_at" timestamp with time zone not null default now(),
+    "owner_id" uuid not null
       );
 
 
@@ -102,7 +103,7 @@ alter table "public"."payments" enable row level security;
 
   create table "public"."profiles" (
     "id" uuid not null default gen_random_uuid(),
-    "organization_id" uuid not null,
+    "organization_id" uuid,
     "created_at" timestamp with time zone not null default now(),
     "full_name" text not null,
     "email" text not null,
@@ -129,7 +130,7 @@ alter table "public"."properties" enable row level security;
 
 
   create table "public"."staff" (
-    "user_id" uuid not null,
+    "id" uuid not null,
     "created_at" timestamp with time zone not null default now(),
     "phone_number" text not null,
     "role" public.staff_role not null,
@@ -141,7 +142,7 @@ alter table "public"."staff" enable row level security;
 
 
   create table "public"."tenants" (
-    "user_id" uuid not null,
+    "id" uuid not null,
     "unit_id" uuid not null,
     "lease_start" timestamp with time zone not null,
     "lease_end" timestamp with time zone not null,
@@ -165,7 +166,7 @@ alter table "public"."units" enable row level security;
 
 
   create table "public"."user_roles" (
-    "user_id" uuid not null,
+    "id" uuid not null,
     "user_role" public.user_role not null,
     "created_at" timestamp with time zone not null default now()
       );
@@ -187,15 +188,15 @@ CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id);
 
 CREATE UNIQUE INDEX properties_pkey ON public.properties USING btree (id);
 
-CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (user_id);
+CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (id);
 
-CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (user_id);
+CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id);
 
 CREATE UNIQUE INDEX units_pkey ON public.units USING btree (id);
 
 CREATE UNIQUE INDEX units_property_unit_unique ON public.units USING btree (property_id, unit_number);
 
-CREATE UNIQUE INDEX user_roles_pkey ON public.user_roles USING btree (user_id);
+CREATE UNIQUE INDEX user_roles_pkey ON public.user_roles USING btree (id);
 
 alter table "public"."invoices" add constraint "invoices_pkey" PRIMARY KEY using index "invoices_pkey";
 
@@ -263,6 +264,10 @@ alter table "public"."maintenance_requests" add constraint "maintenance_requests
 
 alter table "public"."maintenance_requests" validate constraint "maintenance_requests_unit_id_fkey";
 
+alter table "public"."organizations" add constraint "organizations_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."organizations" validate constraint "organizations_owner_id_fkey";
+
 alter table "public"."payments" add constraint "payments_invoice_id_fkey" FOREIGN KEY (invoice_id) REFERENCES public.invoices(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."payments" validate constraint "payments_invoice_id_fkey";
@@ -279,17 +284,17 @@ alter table "public"."properties" add constraint "properties_organization_id_fke
 
 alter table "public"."properties" validate constraint "properties_organization_id_fkey";
 
-alter table "public"."staff" add constraint "staff_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+alter table "public"."staff" add constraint "staff_id_fkey" FOREIGN KEY (id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
-alter table "public"."staff" validate constraint "staff_user_id_fkey";
+alter table "public"."staff" validate constraint "staff_id_fkey";
+
+alter table "public"."tenants" add constraint "tenants_id_fkey" FOREIGN KEY (id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."tenants" validate constraint "tenants_id_fkey";
 
 alter table "public"."tenants" add constraint "tenants_unit_id_fkey" FOREIGN KEY (unit_id) REFERENCES public.units(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."tenants" validate constraint "tenants_unit_id_fkey";
-
-alter table "public"."tenants" add constraint "tenants_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
-
-alter table "public"."tenants" validate constraint "tenants_user_id_fkey";
 
 alter table "public"."units" add constraint "units_property_id_fkey" FOREIGN KEY (property_id) REFERENCES public.properties(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
@@ -297,9 +302,9 @@ alter table "public"."units" validate constraint "units_property_id_fkey";
 
 alter table "public"."units" add constraint "units_property_unit_unique" UNIQUE using index "units_property_unit_unique";
 
-alter table "public"."user_roles" add constraint "user_roles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+alter table "public"."user_roles" add constraint "user_roles_id_fkey" FOREIGN KEY (id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
-alter table "public"."user_roles" validate constraint "user_roles_user_id_fkey";
+alter table "public"."user_roles" validate constraint "user_roles_id_fkey";
 
 grant delete on table "public"."invoices" to "anon";
 
@@ -328,20 +333,6 @@ grant trigger on table "public"."invoices" to "authenticated";
 grant truncate on table "public"."invoices" to "authenticated";
 
 grant update on table "public"."invoices" to "authenticated";
-
-grant delete on table "public"."invoices" to "postgres";
-
-grant insert on table "public"."invoices" to "postgres";
-
-grant references on table "public"."invoices" to "postgres";
-
-grant select on table "public"."invoices" to "postgres";
-
-grant trigger on table "public"."invoices" to "postgres";
-
-grant truncate on table "public"."invoices" to "postgres";
-
-grant update on table "public"."invoices" to "postgres";
 
 grant delete on table "public"."invoices" to "service_role";
 
@@ -385,20 +376,6 @@ grant truncate on table "public"."maintenance_events" to "authenticated";
 
 grant update on table "public"."maintenance_events" to "authenticated";
 
-grant delete on table "public"."maintenance_events" to "postgres";
-
-grant insert on table "public"."maintenance_events" to "postgres";
-
-grant references on table "public"."maintenance_events" to "postgres";
-
-grant select on table "public"."maintenance_events" to "postgres";
-
-grant trigger on table "public"."maintenance_events" to "postgres";
-
-grant truncate on table "public"."maintenance_events" to "postgres";
-
-grant update on table "public"."maintenance_events" to "postgres";
-
 grant delete on table "public"."maintenance_events" to "service_role";
 
 grant insert on table "public"."maintenance_events" to "service_role";
@@ -440,20 +417,6 @@ grant trigger on table "public"."maintenance_requests" to "authenticated";
 grant truncate on table "public"."maintenance_requests" to "authenticated";
 
 grant update on table "public"."maintenance_requests" to "authenticated";
-
-grant delete on table "public"."maintenance_requests" to "postgres";
-
-grant insert on table "public"."maintenance_requests" to "postgres";
-
-grant references on table "public"."maintenance_requests" to "postgres";
-
-grant select on table "public"."maintenance_requests" to "postgres";
-
-grant trigger on table "public"."maintenance_requests" to "postgres";
-
-grant truncate on table "public"."maintenance_requests" to "postgres";
-
-grant update on table "public"."maintenance_requests" to "postgres";
 
 grant delete on table "public"."maintenance_requests" to "service_role";
 
@@ -497,20 +460,6 @@ grant truncate on table "public"."messages" to "authenticated";
 
 grant update on table "public"."messages" to "authenticated";
 
-grant delete on table "public"."messages" to "postgres";
-
-grant insert on table "public"."messages" to "postgres";
-
-grant references on table "public"."messages" to "postgres";
-
-grant select on table "public"."messages" to "postgres";
-
-grant trigger on table "public"."messages" to "postgres";
-
-grant truncate on table "public"."messages" to "postgres";
-
-grant update on table "public"."messages" to "postgres";
-
 grant delete on table "public"."messages" to "service_role";
 
 grant insert on table "public"."messages" to "service_role";
@@ -552,20 +501,6 @@ grant trigger on table "public"."organizations" to "authenticated";
 grant truncate on table "public"."organizations" to "authenticated";
 
 grant update on table "public"."organizations" to "authenticated";
-
-grant delete on table "public"."organizations" to "postgres";
-
-grant insert on table "public"."organizations" to "postgres";
-
-grant references on table "public"."organizations" to "postgres";
-
-grant select on table "public"."organizations" to "postgres";
-
-grant trigger on table "public"."organizations" to "postgres";
-
-grant truncate on table "public"."organizations" to "postgres";
-
-grant update on table "public"."organizations" to "postgres";
 
 grant delete on table "public"."organizations" to "service_role";
 
@@ -609,20 +544,6 @@ grant truncate on table "public"."payments" to "authenticated";
 
 grant update on table "public"."payments" to "authenticated";
 
-grant delete on table "public"."payments" to "postgres";
-
-grant insert on table "public"."payments" to "postgres";
-
-grant references on table "public"."payments" to "postgres";
-
-grant select on table "public"."payments" to "postgres";
-
-grant trigger on table "public"."payments" to "postgres";
-
-grant truncate on table "public"."payments" to "postgres";
-
-grant update on table "public"."payments" to "postgres";
-
 grant delete on table "public"."payments" to "service_role";
 
 grant insert on table "public"."payments" to "service_role";
@@ -664,20 +585,6 @@ grant trigger on table "public"."profiles" to "authenticated";
 grant truncate on table "public"."profiles" to "authenticated";
 
 grant update on table "public"."profiles" to "authenticated";
-
-grant delete on table "public"."profiles" to "postgres";
-
-grant insert on table "public"."profiles" to "postgres";
-
-grant references on table "public"."profiles" to "postgres";
-
-grant select on table "public"."profiles" to "postgres";
-
-grant trigger on table "public"."profiles" to "postgres";
-
-grant truncate on table "public"."profiles" to "postgres";
-
-grant update on table "public"."profiles" to "postgres";
 
 grant delete on table "public"."profiles" to "service_role";
 
@@ -721,20 +628,6 @@ grant truncate on table "public"."properties" to "authenticated";
 
 grant update on table "public"."properties" to "authenticated";
 
-grant delete on table "public"."properties" to "postgres";
-
-grant insert on table "public"."properties" to "postgres";
-
-grant references on table "public"."properties" to "postgres";
-
-grant select on table "public"."properties" to "postgres";
-
-grant trigger on table "public"."properties" to "postgres";
-
-grant truncate on table "public"."properties" to "postgres";
-
-grant update on table "public"."properties" to "postgres";
-
 grant delete on table "public"."properties" to "service_role";
 
 grant insert on table "public"."properties" to "service_role";
@@ -776,20 +669,6 @@ grant trigger on table "public"."staff" to "authenticated";
 grant truncate on table "public"."staff" to "authenticated";
 
 grant update on table "public"."staff" to "authenticated";
-
-grant delete on table "public"."staff" to "postgres";
-
-grant insert on table "public"."staff" to "postgres";
-
-grant references on table "public"."staff" to "postgres";
-
-grant select on table "public"."staff" to "postgres";
-
-grant trigger on table "public"."staff" to "postgres";
-
-grant truncate on table "public"."staff" to "postgres";
-
-grant update on table "public"."staff" to "postgres";
 
 grant delete on table "public"."staff" to "service_role";
 
@@ -833,20 +712,6 @@ grant truncate on table "public"."tenants" to "authenticated";
 
 grant update on table "public"."tenants" to "authenticated";
 
-grant delete on table "public"."tenants" to "postgres";
-
-grant insert on table "public"."tenants" to "postgres";
-
-grant references on table "public"."tenants" to "postgres";
-
-grant select on table "public"."tenants" to "postgres";
-
-grant trigger on table "public"."tenants" to "postgres";
-
-grant truncate on table "public"."tenants" to "postgres";
-
-grant update on table "public"."tenants" to "postgres";
-
 grant delete on table "public"."tenants" to "service_role";
 
 grant insert on table "public"."tenants" to "service_role";
@@ -888,20 +753,6 @@ grant trigger on table "public"."units" to "authenticated";
 grant truncate on table "public"."units" to "authenticated";
 
 grant update on table "public"."units" to "authenticated";
-
-grant delete on table "public"."units" to "postgres";
-
-grant insert on table "public"."units" to "postgres";
-
-grant references on table "public"."units" to "postgres";
-
-grant select on table "public"."units" to "postgres";
-
-grant trigger on table "public"."units" to "postgres";
-
-grant truncate on table "public"."units" to "postgres";
-
-grant update on table "public"."units" to "postgres";
 
 grant delete on table "public"."units" to "service_role";
 
@@ -945,20 +796,6 @@ grant truncate on table "public"."user_roles" to "authenticated";
 
 grant update on table "public"."user_roles" to "authenticated";
 
-grant delete on table "public"."user_roles" to "postgres";
-
-grant insert on table "public"."user_roles" to "postgres";
-
-grant references on table "public"."user_roles" to "postgres";
-
-grant select on table "public"."user_roles" to "postgres";
-
-grant trigger on table "public"."user_roles" to "postgres";
-
-grant truncate on table "public"."user_roles" to "postgres";
-
-grant update on table "public"."user_roles" to "postgres";
-
 grant delete on table "public"."user_roles" to "service_role";
 
 grant insert on table "public"."user_roles" to "service_role";
@@ -972,5 +809,95 @@ grant trigger on table "public"."user_roles" to "service_role";
 grant truncate on table "public"."user_roles" to "service_role";
 
 grant update on table "public"."user_roles" to "service_role";
+
+
+  create policy "Enable authenticated org owners to delete their org"
+  on "public"."organizations"
+  as permissive
+  for delete
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = owner_id));
+
+
+
+  create policy "Enable authenticated users update their own organization"
+  on "public"."organizations"
+  as permissive
+  for update
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = owner_id));
+
+
+
+  create policy "Enable insert for authenticated users only"
+  on "public"."organizations"
+  as permissive
+  for insert
+  to authenticated
+with check ((( SELECT auth.uid() AS uid) = owner_id));
+
+
+
+  create policy "Enable users to view their own data only"
+  on "public"."organizations"
+  as permissive
+  for select
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = owner_id));
+
+
+
+  create policy "Enable authenticated users select their profile"
+  on "public"."profiles"
+  as permissive
+  for select
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = id));
+
+
+
+  create policy "Enable authenticated users to delete their profile"
+  on "public"."profiles"
+  as permissive
+  for delete
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = id));
+
+
+
+  create policy "Enable authenticated users update their profile"
+  on "public"."profiles"
+  as permissive
+  for update
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = id));
+
+
+
+  create policy "Enable insert for authenticated users only"
+  on "public"."profiles"
+  as permissive
+  for insert
+  to authenticated
+with check ((( SELECT auth.uid() AS uid) = id));
+
+
+
+  create policy "Enable authenticated users select their role"
+  on "public"."user_roles"
+  as permissive
+  for select
+  to authenticated
+using ((( SELECT auth.uid() AS uid) = id));
+
+
+
+  create policy "Enable insert for authenticated users only"
+  on "public"."user_roles"
+  as permissive
+  for insert
+  to authenticated
+with check ((( SELECT auth.uid() AS uid) = id));
+
 
 

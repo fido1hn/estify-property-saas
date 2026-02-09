@@ -260,18 +260,29 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          owner_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          owner_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -312,7 +323,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          organization_id: string
+          organization_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -320,7 +331,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
-          organization_id: string
+          organization_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -328,7 +339,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
-          organization_id?: string
+          organization_id?: string | null
         }
         Relationships: [
           {
@@ -384,29 +395,29 @@ export type Database = {
       staff: {
         Row: {
           created_at: string
+          id: string
           phone_number: string
           role: Database["public"]["Enums"]["staff_role"]
           status: Database["public"]["Enums"]["staff_status"]
-          user_id: string
         }
         Insert: {
           created_at?: string
+          id: string
           phone_number: string
           role: Database["public"]["Enums"]["staff_role"]
           status: Database["public"]["Enums"]["staff_status"]
-          user_id: string
         }
         Update: {
           created_at?: string
+          id?: string
           phone_number?: string
           role?: Database["public"]["Enums"]["staff_role"]
           status?: Database["public"]["Enums"]["staff_status"]
-          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "staff_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "staff_id_fkey"
+            columns: ["id"]
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -416,41 +427,41 @@ export type Database = {
       tenants: {
         Row: {
           created_at: string
+          id: string
           lease_end: string
           lease_start: string
           status: Database["public"]["Enums"]["tenant_status"]
           unit_id: string
-          user_id: string
         }
         Insert: {
           created_at?: string
+          id: string
           lease_end: string
           lease_start: string
           status: Database["public"]["Enums"]["tenant_status"]
           unit_id: string
-          user_id: string
         }
         Update: {
           created_at?: string
+          id?: string
           lease_end?: string
           lease_start?: string
           status?: Database["public"]["Enums"]["tenant_status"]
           unit_id?: string
-          user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenants_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tenants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -487,23 +498,23 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string
-          user_id: string
+          id: string
           user_role: Database["public"]["Enums"]["user_role"]
         }
         Insert: {
           created_at?: string
-          user_id: string
+          id: string
           user_role: Database["public"]["Enums"]["user_role"]
         }
         Update: {
           created_at?: string
-          user_id?: string
+          id?: string
           user_role?: Database["public"]["Enums"]["user_role"]
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "user_roles_id_fkey"
+            columns: ["id"]
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]

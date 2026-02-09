@@ -1,14 +1,13 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../services/supabaseClient';
 import AuthLayout from '../../components/layouts/AuthLayout';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { useLogin } from '../../hooks/useLogin';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { signIn, loading, error, clearError } = useLogin();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -16,29 +15,17 @@ export default function Login() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(null);
+    clearError();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+    const { error } = await signIn(formData.email, formData.password);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (error) throw error;
-      
+    if (!error) {
       // Navigate to dashboard or appropriate page based on role
       // For now, straight to dashboard/home, the AuthContext and ProtectedRoutes will handle redirection if needed
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign in');
-    } finally {
-      setLoading(false);
     }
   };
 
