@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, Bell, Mail, ChevronDown, User as UserIcon, Menu, LogOut } from 'lucide-react';
-import { User, UserRole } from '../types';
+import { User } from '../types';
+import { useOutsideClick } from '../hooks/useOutsideClick';
 
 interface TopbarProps {
   user: User;
   toggleSidebar: () => void;
-  setRole: (role: UserRole) => void;
   onLogout?: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ user, toggleSidebar, setRole, onLogout }) => {
+export const Topbar: React.FC<TopbarProps> = ({ user, toggleSidebar, onLogout }) => {
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useOutsideClick(menuRef, () => setShowRoleMenu(false), showRoleMenu);
+
+  const handleLogout = () => {
+    setShowRoleMenu(false);
+    onLogout?.();
+  };
 
   return (
     <header className="h-20 bg-white border-b border-gray-100 px-4 md:px-8 flex items-center justify-between sticky top-0 z-10 shrink-0">
@@ -58,33 +67,23 @@ export const Topbar: React.FC<TopbarProps> = ({ user, toggleSidebar, setRole, on
           </button>
 
           {showRoleMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="px-4 py-2 border-b border-gray-50 mb-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Switch Role (Dev Only)</span>
-              </div>
-              {Object.values(UserRole).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => {
-                    setRole(role);
-                    setShowRoleMenu(false);
-                  }}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-gray-50 ${user.role === role ? 'text-orange-500 font-bold' : 'text-gray-600'}`}
-                >
-                  {role.replace('_', ' ')}
-                </button>
-              ))}
-              <div className="border-t border-gray-50 mt-2 pt-2">
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-                  <UserIcon size={16} /> My Profile
-                </button>
-                <button 
-                  onClick={onLogout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                >
-                  <LogOut size={16} /> Log Out
-                </button>
-              </div>
+            <div
+              ref={menuRef}
+              className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2"
+            >
+              <Link
+                to="/settings"
+                onClick={() => setShowRoleMenu(false)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <UserIcon size={16} /> My Profile
+              </Link>
+              <button 
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <LogOut size={16} /> Log Out
+              </button>
             </div>
           )}
         </div>

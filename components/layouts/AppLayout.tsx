@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
 
 import { Sidebar } from "../Sidebar";
@@ -7,10 +7,12 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useNavItems } from "../../hooks/useNavItems";
 import { User } from "../../types";
 import { mapDbRoleToUserRole } from "../../utils/auth";
+import { useOutsideClick } from "../../hooks/useOutsideClick";
 
 export function AppLayout() {
   const { role, profile, signOut } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
 
   const userRole = mapDbRoleToUserRole(role);
 
@@ -28,6 +30,8 @@ export function AppLayout() {
 
   const navItems = useNavItems(userRole);
 
+  useOutsideClick(sidebarRef, () => setSidebarOpen(false), isSidebarOpen);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 relative">
       {/* Sidebar Overlay for Mobile */}
@@ -38,18 +42,18 @@ export function AppLayout() {
         />
       )}
 
-      <Sidebar
-        items={navItems}
-        isOpen={isSidebarOpen}
-        setIsOpen={setSidebarOpen}
-      />
+      <div ref={sidebarRef} className="h-full">
+        <Sidebar
+          items={navItems}
+          isOpen={isSidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar
           user={appUser}
           toggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
-          setRole={() => {}}
-          /* @ts-ignore - Topbar might not expect onLogout yet, need to check */
           onLogout={signOut}
         />
 

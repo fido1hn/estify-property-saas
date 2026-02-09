@@ -20,7 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, isOpen, setIsOpen }) =>
 
   return (
     <aside 
-      className={`fixed lg:relative inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col 
+      className={`fixed lg:relative inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col h-full 
         ${isOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full lg:translate-x-0 lg:w-0 overflow-hidden border-none'}
       `}
     >
