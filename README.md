@@ -1,20 +1,70 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Property Management SaaS
 
-# Run and deploy your AI Studio app
+[![Supabase](https://img.shields.io/badge/Supabase-2E7D32?logo=supabase&logoColor=white)](https://supabase.com)
+[![React](https://img.shields.io/badge/React-1E293B?logo=react&logoColor=61DAFB)](https://react.dev)
 
-This contains everything you need to run your app locally.
+A modern property management platform built with React, Vite, and Supabase. Manage organizations, properties, units, tenants, staff, maintenance, and billing from a single dashboard.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1JBLiXgXFzFgud-wcqKqxELVyAzmJ5ROn
+## Tech Stack
+- React + TypeScript (Vite)
+- Supabase (Auth, Postgres, RLS, Storage)
+- React Query
+- Tailwind CSS
 
-## Run Locally
+## Features
+- Authenticated onboarding flow for owners, tenants, and staff
+- Organization creation for property owners
+- Property CRUD with images and building type
+- Unit management per property
+- Role-based navigation and route protection
+- Owner-scoped data access via RLS policies
+- Tenant onboarding via invites (planned)
+- Maintenance request tracking (schema-ready)
+- Invoicing and payments (schema-ready)
+- Analytics-ready queries for portfolio KPIs
 
-**Prerequisites:**  Node.js
+## Quick Start
 
+1. Install dependencies
+```bash
+pnpm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Create your env file
+```bash
+cp .env.example .env
+```
+
+3. Fill in Supabase env vars in `.env`
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_SERVICE_ROLE_KEY=
+```
+
+4. Run the app
+```bash
+pnpm dev
+```
+
+The app will be available at `http://localhost:5173` by default.
+
+## Database & Auth
+
+- Supabase schema and policies live in `supabase/migrations/`.
+- Generated types live in `types/database.types.ts`.
+- The client is initialized in `services/supabaseClient.ts`.
+
+### Optional: Seed Data
+Seeding uses the service role key. Make sure `VITE_SUPABASE_SERVICE_ROLE_KEY` is set.
+```bash
+pnpm seed
+```
+
+## Scripts
+```bash
+pnpm dev       # start dev server
+pnpm build     # production build
+pnpm preview   # preview build
+pnpm seed      # seed database (requires service role key)
+```

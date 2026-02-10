@@ -40,63 +40,87 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
-          organization_id: string
+          lease_id: string
           paid_at: string | null
-          property_id: string
           status: Database["public"]["Enums"]["invoice_status"]
-          tenant_id: string
-          unit_id: string
+          updated_at: string | null
         }
         Insert: {
           amount_kobo: number
           created_at?: string
           due_date: string
           id?: string
-          organization_id: string
+          lease_id: string
           paid_at?: string | null
-          property_id: string
           status: Database["public"]["Enums"]["invoice_status"]
-          tenant_id: string
-          unit_id: string
+          updated_at?: string | null
         }
         Update: {
           amount_kobo?: number
           created_at?: string
           due_date?: string
           id?: string
-          organization_id?: string
+          lease_id?: string
           paid_at?: string | null
-          property_id?: string
           status?: Database["public"]["Enums"]["invoice_status"]
-          tenant_id?: string
-          unit_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "invoices_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
+            foreignKeyName: "invoices_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: true
+            referencedRelation: "leases"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      leases: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          lease_status: Database["public"]["Enums"]["lease_status"]
+          rent_kobo: number
+          start_date: string
+          tenant_id: string
+          unit_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          lease_status: Database["public"]["Enums"]["lease_status"]
+          rent_kobo: number
+          start_date: string
+          tenant_id: string
+          unit_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          lease_status?: Database["public"]["Enums"]["lease_status"]
+          rent_kobo?: number
+          start_date?: string
+          tenant_id?: string
+          unit_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "invoices_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_tenant_id_fkey"
+            foreignKeyName: "leases_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "invoices_unit_id_fkey"
+            foreignKeyName: "leases_unit_id_fkey"
             columns: ["unit_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
@@ -146,12 +170,11 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
-          assigned_staff_id: string
+          assigned_staff_id: string | null
           created_at: string
           created_by: string
           description: string
           id: string
-          organization_id: string
           priority: Database["public"]["Enums"]["maintenance_requests_priority"]
           property_id: string
           resolved_at: string | null
@@ -161,12 +184,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          assigned_staff_id: string
+          assigned_staff_id?: string | null
           created_at?: string
           created_by: string
           description: string
           id?: string
-          organization_id: string
           priority: Database["public"]["Enums"]["maintenance_requests_priority"]
           property_id: string
           resolved_at?: string | null
@@ -176,12 +198,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          assigned_staff_id?: string
+          assigned_staff_id?: string | null
           created_at?: string
           created_by?: string
           description?: string
           id?: string
-          organization_id?: string
           priority?: Database["public"]["Enums"]["maintenance_requests_priority"]
           property_id?: string
           resolved_at?: string | null
@@ -192,10 +213,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "maintenance_requests_assigned_staff_id_fkey"
+            foreignKeyName: "maintenance_requests_assigned_staff_id_fkey1"
             columns: ["assigned_staff_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
           {
@@ -203,13 +224,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "maintenance_requests_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -253,7 +267,22 @@ export type Database = {
           receiver_id?: string
           sender_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organizations: {
         Row: {
@@ -323,7 +352,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          organization_id: string | null
+          phone_number: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -331,7 +360,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
-          organization_id?: string | null
+          phone_number?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -339,17 +368,9 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
-          organization_id?: string | null
+          phone_number?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       properties: {
         Row: {
@@ -361,6 +382,7 @@ export type Database = {
           organization_id: string
           total_units: number
           type: Database["public"]["Enums"]["buidling_type"]
+          updated_at: string | null
         }
         Insert: {
           address: string
@@ -371,6 +393,7 @@ export type Database = {
           organization_id: string
           total_units: number
           type: Database["public"]["Enums"]["buidling_type"]
+          updated_at?: string | null
         }
         Update: {
           address?: string
@@ -381,6 +404,7 @@ export type Database = {
           organization_id?: string
           total_units?: number
           type?: Database["public"]["Enums"]["buidling_type"]
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -396,22 +420,16 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          phone_number: string
-          role: Database["public"]["Enums"]["staff_role"]
           status: Database["public"]["Enums"]["staff_status"]
         }
         Insert: {
           created_at?: string
           id: string
-          phone_number: string
-          role: Database["public"]["Enums"]["staff_role"]
           status: Database["public"]["Enums"]["staff_status"]
         }
         Update: {
           created_at?: string
           id?: string
-          phone_number?: string
-          role?: Database["public"]["Enums"]["staff_role"]
           status?: Database["public"]["Enums"]["staff_status"]
         }
         Relationships: [
@@ -424,30 +442,60 @@ export type Database = {
           },
         ]
       }
+      staff_assignments: {
+        Row: {
+          assigned_at: string
+          id: string
+          property_id: string
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          property_id: string
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          property_id?: string
+          role?: Database["public"]["Enums"]["staff_role"]
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           created_at: string
           id: string
-          lease_end: string
-          lease_start: string
           status: Database["public"]["Enums"]["tenant_status"]
-          unit_id: string
         }
         Insert: {
           created_at?: string
           id: string
-          lease_end: string
-          lease_start: string
           status: Database["public"]["Enums"]["tenant_status"]
-          unit_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          lease_end?: string
-          lease_start?: string
           status?: Database["public"]["Enums"]["tenant_status"]
-          unit_id?: string
         }
         Relationships: [
           {
@@ -457,8 +505,40 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      unit_occupants: {
+        Row: {
+          created_at: string
+          left_at: string | null
+          tenant_id: string
+          unit_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          left_at?: string | null
+          tenant_id: string
+          unit_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          left_at?: string | null
+          tenant_id?: string
+          unit_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "tenants_unit_id_fkey"
+            foreignKeyName: "unit_occupants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_occupants_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
@@ -471,19 +551,25 @@ export type Database = {
           created_at: string
           id: string
           property_id: string
+          unit_description: string | null
           unit_number: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           property_id: string
+          unit_description?: string | null
           unit_number: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           property_id?: string
+          unit_description?: string | null
           unit_number?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -531,6 +617,7 @@ export type Database = {
     Enums: {
       buidling_type: "commercial" | "residential"
       invoice_status: "draft" | "issued" | "paid" | "overdue"
+      lease_status: "active" | "expired" | "pending"
       maintenance_requests_priority: "low" | "medium" | "high" | "urgent"
       maintenance_requests_status:
         | "open"
@@ -678,6 +765,7 @@ export const Constants = {
     Enums: {
       buidling_type: ["commercial", "residential"],
       invoice_status: ["draft", "issued", "paid", "overdue"],
+      lease_status: ["active", "expired", "pending"],
       maintenance_requests_priority: ["low", "medium", "high", "urgent"],
       maintenance_requests_status: [
         "open",

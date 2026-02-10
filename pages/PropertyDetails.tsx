@@ -2,31 +2,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Property, Tenant, Staff } from '../types';
-import { ChevronLeft, MapPin, Plus, Edit2, Trash2, X, ShieldCheck } from 'lucide-react';
+import { Property, UnitRow } from '../types';
+import { ChevronLeft, MapPin, Plus, Edit2, Trash2, X } from 'lucide-react';
 import { useProperty, useEditProperty, useDeleteProperty } from '../hooks/useProperties';
-import { useTenants } from '../hooks/useTenants';
-import { useStaff } from '../hooks/useStaff';
+import { useUnitsByProperty, useCreateUnit, useUpdateUnit, useDeleteUnit } from '../hooks/useUnits';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
-import { useAuth } from '../contexts/AuthContext';
 import { useOutsideClick } from '../hooks/useOutsideClick';
 
 export const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
   
   const { property, isPending: isPropertyLoading } = useProperty(id!);
-  const { tenants: allTenants = [], isPending: isTenantsLoading } = useTenants();
-  const { staff: allStaff = [], isPending: isStaffLoading } = useStaff();
+  const { units = [], isPending: isUnitsLoading } = useUnitsByProperty(id);
   
-  const { editProperty, isEditing } = useEditProperty();
-  const { deleteProp, isDeleting } = useDeleteProperty();
+  const { editProperty } = useEditProperty();
+  const { deleteProp } = useDeleteProperty();
+  const { createUnit, isCreating: isUnitCreating } = useCreateUnit();
+  const { updateUnit, isUpdating: isUnitUpdating } = useUpdateUnit();
+  const { deleteUnit } = useDeleteUnit();
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
+  const [isUnitDeleteModalOpen, setIsUnitDeleteModalOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<UnitRow | null>(null);
+  const [unitToDelete, setUnitToDelete] = useState<UnitRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const unitModalRef = useRef<HTMLDivElement | null>(null);
 
   const {
     register,
@@ -49,6 +53,21 @@ export const PropertyDetails: React.FC = () => {
     },
   });
 
+  const {
+    register: registerUnit,
+    handleSubmit: handleSubmitUnit,
+    reset: resetUnit,
+    formState: { errors: unitErrors, isSubmitting: isUnitSubmitting },
+  } = useForm<{
+    unit_number: number;
+    unit_description: string;
+  }>({
+    defaultValues: {
+      unit_number: 1,
+      unit_description: '',
+    },
+  });
+
   useEffect(() => {
     if (property) {
       reset({
@@ -62,11 +81,7 @@ export const PropertyDetails: React.FC = () => {
   }, [property, reset]);
 
   useOutsideClick(modalRef, () => setIsEditModalOpen(false), isEditModalOpen);
-
-  const tenants = allTenants.filter(
-    (t) => t.units?.properties?.name === property?.name,
-  );
-  const staff = allStaff; // Filtering logic can be added if assignments are available in DB
+  useOutsideClick(unitModalRef, () => setIsUnitModalOpen(false), isUnitModalOpen);
 
   const handleUpdate = async (values: {
     name: string;
@@ -76,12 +91,12 @@ export const PropertyDetails: React.FC = () => {
     image_url: string;
   }) => {
     if (!id) return;
-    if (!profile?.organization_id) {
-      setFormError('You need an organization before editing properties.');
+    if (!property?.organization_id) {
+      setFormError("You need an organization before editing properties.");
       return;
     }
     editProperty(
-      { data: values, id, organizationId: profile.organization_id },
+      { data: values, id, organizationId: property.organization_id },
       {
         onSuccess: () => setIsEditModalOpen(false),
       },
@@ -96,11 +111,79 @@ export const PropertyDetails: React.FC = () => {
     }
   };
 
+  const handleOpenUnitModal = (unit?: UnitRow) => {
+    if (unit) {
+      setEditingUnit(unit);
+      resetUnit({
+        unit_number: unit.unit_number,
+        unit_description: unit.unit_description || '',
+      });
+    } else {
+      setEditingUnit(null);
+      resetUnit({
+        unit_number: 1,
+        unit_description: '',
+      });
+    }
+    setIsUnitModalOpen(true);
+  };
+
+  const handleUnitSubmit = async (values: {
+    unit_number: number;
+    unit_description: string;
+  }) => {
+    if (!property) return;
+
+    if (editingUnit) {
+      updateUnit(
+        {
+          id: editingUnit.id,
+          updates: {
+            unit_number: values.unit_number,
+            unit_description: values.unit_description || null,
+          },
+        },
+        {
+          onSuccess: () => setIsUnitModalOpen(false),
+        },
+      );
+      return;
+    }
+
+    createUnit(
+      {
+        property_id: property.id,
+        unit_number: values.unit_number,
+        unit_description: values.unit_description || null,
+      },
+      {
+        onSuccess: () => setIsUnitModalOpen(false),
+      },
+    );
+  };
+
+  const confirmDeleteUnit = (unit: UnitRow) => {
+    setUnitToDelete(unit);
+    setIsUnitDeleteModalOpen(true);
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!unitToDelete) return;
+    deleteUnit(unitToDelete.id, {
+      onSuccess: () => {
+        setIsUnitDeleteModalOpen(false);
+        setUnitToDelete(null);
+      },
+    });
+  };
+
   if (isPropertyLoading) return null;
   if (!property) return null;
+  const unitCount = units?.length ?? property.total_units;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div>
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <header className="flex items-center gap-4">
         <button 
           onClick={() => navigate('/properties')}
@@ -139,76 +222,53 @@ export const PropertyDetails: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Tenants Section */}
-            <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Active Tenants</h3>
-                <button 
-                  onClick={() => navigate('/tenants')}
-                  className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline"
-                >
-                  <Plus size={16} /> Add
-                </button>
-              </div>
-              {tenants.length > 0 ? (
-                <div className="space-y-4">
-                  {tenants.map(t => (
-                    <div 
-                      key={t.id} 
-                      onClick={() => navigate(`/tenants/${t.id}`)}
-                      className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
-                          {t.profiles?.full_name?.charAt(0) || '?'}
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{t.profiles?.full_name || 'Unknown'}</p>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold">{t.unit_id.slice(0, 8)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-gray-400 text-sm">No tenants.</div>
-              )}
+          <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Units</h3>
+              <button 
+                onClick={() => handleOpenUnitModal()}
+                className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline"
+              >
+                <Plus size={16} /> Add Unit
+              </button>
             </div>
-
-            {/* Staff Section */}
-            <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Assigned Team</h3>
-                <button 
-                  onClick={() => navigate('/staff')}
-                  className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline"
-                >
-                  <ShieldCheck size={16} /> Manage
-                </button>
-              </div>
-              {staff.length > 0 ? (
-                <div className="space-y-4">
-                  {staff.map(s => (
-                    <div 
-                      key={s.id} 
-                      onClick={() => navigate(`/staff/${s.id}`)}
-                      className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img src={s.profiles?.avatar_url || `https://picsum.photos/seed/${s.id}/100`} className="w-10 h-10 rounded-xl object-cover" />
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{s.profiles?.full_name}</p>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold">{s.role}</p>
-                        </div>
-                      </div>
+            {isUnitsLoading ? (
+              <div className="text-center py-6 text-gray-400 text-sm">Loading units...</div>
+            ) : units.length > 0 ? (
+              <div className="space-y-3">
+                {units.map((unit) => (
+                  <div
+                    key={unit.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl"
+                  >
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">
+                        Unit {unit.unit_number}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {unit.unit_description || "No description"}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-gray-400 text-sm">No staff assigned.</div>
-              )}
-            </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleOpenUnitModal(unit)}
+                        className="p-2 bg-white rounded-xl text-gray-600 hover:text-orange-500 shadow-sm"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => confirmDeleteUnit(unit)}
+                        className="p-2 bg-white rounded-xl text-gray-600 hover:text-red-500 shadow-sm"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-400 text-sm">No units yet.</div>
+            )}
           </div>
         </div>
 
@@ -222,7 +282,7 @@ export const PropertyDetails: React.FC = () => {
                </div>
                <div>
                  <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Units</p>
-                 <p className="text-3xl font-bold">{property.total_units}</p>
+                 <p className="text-3xl font-bold">{unitCount}</p>
                </div>
             </div>
             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
@@ -328,12 +388,67 @@ export const PropertyDetails: React.FC = () => {
         </div>
       )}
 
+      </div>
+
       <DeleteConfirmationModal 
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
         title="Delete Asset"
         message="Are you sure you want to delete this property asset? This cannot be reversed."
+      />
+
+      {/* Unit Modal */}
+      {isUnitModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div ref={unitModalRef} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingUnit ? "Edit Unit" : "Add Unit"}
+              </h2>
+              <button onClick={() => setIsUnitModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-400"><X size={20}/></button>
+            </div>
+            <form onSubmit={handleSubmitUnit(handleUnitSubmit)} className="p-8 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unit Number</label>
+                <input
+                  type="number"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                  {...registerUnit('unit_number', {
+                    valueAsNumber: true,
+                    required: 'Unit number is required',
+                    min: { value: 1, message: 'Unit number must be 1 or more' },
+                  })}
+                />
+                {unitErrors.unit_number && <p className="text-sm text-red-500">{unitErrors.unit_number.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Description</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                  {...registerUnit('unit_description')}
+                />
+              </div>
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isUnitSubmitting || isUnitCreating || isUnitUpdating}
+                  className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 disabled:opacity-70">
+                  {editingUnit ? "Save Unit" : "Create Unit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <DeleteConfirmationModal
+        isOpen={isUnitDeleteModalOpen}
+        onClose={() => setIsUnitDeleteModalOpen(false)}
+        onConfirm={handleDeleteUnit}
+        title="Delete Unit"
+        message="Are you sure you want to delete this unit? This action cannot be undone."
       />
     </div>
   );

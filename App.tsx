@@ -49,8 +49,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const allowOnboarding =
+    location.pathname.startsWith("/auth/signup") &&
+    searchParams.get("onboarding") === "1";
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !allowOnboarding) {
     return <Navigate to="/dashboard" replace />;
   }
 

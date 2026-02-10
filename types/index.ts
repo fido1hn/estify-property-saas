@@ -8,6 +8,9 @@ export type { Database } from './database.types';
 export type PropertyRow = Database['public']['Tables']['properties']['Row'];
 export type PropertyInsert = Database['public']['Tables']['properties']['Insert'];
 export type PropertyUpdate = Database['public']['Tables']['properties']['Update'];
+export type UnitRow = Database['public']['Tables']['units']['Row'];
+export type UnitInsert = Database['public']['Tables']['units']['Insert'];
+export type UnitUpdate = Database['public']['Tables']['units']['Update'];
 
 export type TenantRow = Database['public']['Tables']['tenants']['Row'];
 export type TenantInsert = Database['public']['Tables']['tenants']['Insert'];

@@ -99,14 +99,6 @@ export function useSignUp() {
 
       if (orgError) throw orgError;
 
-      // update org_id for org owner profile row
-      const { error: orgProfileError } = await supabase
-        .from("profiles")
-        .update({ organization_id: orgData.id })
-        .eq("id", userId);
-
-      if (orgProfileError) throw orgProfileError;
-
       return { error: null };
     } catch (err: any) {
       const message =

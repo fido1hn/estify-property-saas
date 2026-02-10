@@ -8,6 +8,9 @@ export async function getOrganization() {
     .single();
 
   if (error) {
+    if (error.code === "PGRST116") {
+      return null;
+    }
     console.error(error);
     throw new Error("Organization could not be loaded");
   }

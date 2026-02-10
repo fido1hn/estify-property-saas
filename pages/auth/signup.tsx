@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import AuthLayout from "../../components/layouts/AuthLayout";
 import {
@@ -18,6 +18,7 @@ type UserRole = Database["public"]["Enums"]["user_role"];
 
 export default function Signup() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { signUp, completeOwnerSetup, loading, error, clearError } = useSignUp();
   const [step, setStep] = useState(1);
   const [userId, setUserId] = useState<string | null>(null);
@@ -26,6 +27,20 @@ export default function Signup() {
     role: "",
     organizationName: "",
   });
+
+  useEffect(() => {
+    const onboarding = searchParams.get("onboarding") === "1";
+    const stepParam = Number(searchParams.get("step") || "1");
+    if (onboarding && stepParam >= 2) {
+      setStep(stepParam);
+      if (!userId) {
+        const storedUserId = sessionStorage.getItem("signup_user_id");
+        if (storedUserId) {
+          setUserId(storedUserId);
+        }
+      }
+    }
+  }, [searchParams, userId]);
 
   const {
     register,
@@ -40,6 +55,7 @@ export default function Signup() {
   const selectRole = (role: UserRole) => {
     if (!userId) return;
     setFormData({ ...formData, role });
+    setSearchParams({ onboarding: "1", step: "3" }, { replace: true });
     setStep(3);
   };
 
@@ -57,6 +73,8 @@ export default function Signup() {
 
     if (!error && userId) {
       setUserId(userId);
+      sessionStorage.setItem("signup_user_id", userId);
+      setSearchParams({ onboarding: "1", step: "2" }, { replace: true });
       setStep(2);
     }
   };
@@ -72,6 +90,7 @@ export default function Signup() {
     });
 
     if (!error) {
+      sessionStorage.removeItem("signup_user_id");
       navigate("/");
     }
   };
@@ -249,7 +268,10 @@ export default function Signup() {
             </div>
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => {
+                setSearchParams({ onboarding: "1", step: "1" }, { replace: true });
+                setStep(1);
+              }}
               className="w-full text-slate-400 hover:text-white mt-4">
               Back
             </button>
@@ -301,7 +323,10 @@ export default function Signup() {
             </button>
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => {
+                setSearchParams({ onboarding: "1", step: "2" }, { replace: true });
+                setStep(2);
+              }}
               className="w-full text-slate-400 hover:text-white mt-2">
               Back
             </button>

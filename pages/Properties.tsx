@@ -10,18 +10,18 @@ import {
   useDeleteProperty,
 } from "../hooks/useProperties";
 import { DeleteConfirmationModal } from "../components/DeleteConfirmationModal";
-import { useAuth } from "../contexts/AuthContext";
+import { useOrganization } from "../hooks/useOrganization";
 import { useOutsideClick } from "../hooks/useOutsideClick";
 
 export const Properties: React.FC = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { organization, isPending: isOrgLoading } = useOrganization();
   const { properties = [], isPending } = useProperties();
   const { createProperty } = useCreateProperty();
   const { editProperty } = useEditProperty();
   const { deleteProp } = useDeleteProperty();
 
-  const organizationId = profile?.organization_id || null;
+  const organizationId = organization?.id || null;
   const [filter, setFilter] = useState<"all" | "residential" | "commercial">(
     "all",
   );
@@ -135,135 +135,137 @@ export const Properties: React.FC = () => {
     }
   };
 
-  if (isPending) return null; // Or a loader
+  if (isPending || isOrgLoading) return null; // Or a loader
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Properties</h1>
-          <p className="text-gray-500 mt-1">
-            Manage your buildings and real estate assets.
-          </p>
-          {!organizationId && (
-            <p className="mt-2 text-sm text-red-500">
-              Create your organization first to add properties.
+    <div>
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Properties</h1>
+            <p className="text-gray-500 mt-1">
+              Manage your buildings and real estate assets.
             </p>
-          )}
+            {!organizationId && (
+              <p className="mt-2 text-sm text-red-500">
+                Create your organization first to add properties.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
+              <Filter size={18} /> Filters
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              disabled={!organizationId}
+              className="flex items-center gap-2 px-4 py-2.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-all shadow-lg shadow-black/10 disabled:opacity-60 disabled:cursor-not-allowed">
+              <Plus size={18} /> New Property
+            </button>
+          </div>
+        </header>
+
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+          {propertyTypes.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setFilter(t.value)}
+              className={`px-6 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === t.value ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-white border border-gray-100 text-gray-500 hover:border-gray-300"}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
-            <Filter size={18} /> Filters
-          </button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {properties
+            .filter((p) => filter === "all" || p.type === filter)
+            .map((property) => (
+              <div
+                key={property.id}
+                className="bg-white rounded-3xl border border-gray-100 overflow-hidden group hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300">
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={
+                      property.image_url ||
+                      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80"
+                    }
+                    alt={property.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-gray-900">
+                    {property.type}
+                  </div>
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <button
+                      onClick={() => navigate(`/properties/${property.id}`)}
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-orange-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                      <Eye size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenModal(property)}
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-orange-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => confirmDelete(property.id)}
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-red-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-gray-900 text-lg mb-1">
+                    {property.name}
+                  </h3>
+                  <div className="flex items-center gap-1.5 text-gray-400 text-sm mb-4">
+                    <MapPin size={14} />
+                    <span className="truncate">{property.address}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-gray-50 p-3 rounded-2xl">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">
+                        Total Units
+                      </p>
+                      <p className="font-bold text-gray-900">
+                        {property.total_units}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-2xl">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">
+                        Occupancy
+                      </p>
+                      <p className="font-bold text-orange-500">
+                        {property.occupancy}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-500"
+                      style={{ width: `${property.occupancy}%` }}></div>
+                  </div>
+
+                  <button
+                    onClick={() => navigate(`/properties/${property.id}`)}
+                    className="w-full mt-5 py-3 bg-gray-50 hover:bg-black hover:text-white text-gray-900 font-bold rounded-2xl transition-all">
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+
           <button
             onClick={() => handleOpenModal()}
             disabled={!organizationId}
-            className="flex items-center gap-2 px-4 py-2.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-all shadow-lg shadow-black/10 disabled:opacity-60 disabled:cursor-not-allowed">
-            <Plus size={18} /> New Property
+            className="border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-8 text-gray-400 hover:border-orange-500 hover:text-orange-500 transition-all gap-4 disabled:opacity-60 disabled:cursor-not-allowed">
+            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center">
+              <Plus size={32} />
+            </div>
+            <span className="font-bold">Add New Property</span>
           </button>
         </div>
-      </header>
-
-      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-        {propertyTypes.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setFilter(t.value)}
-            className={`px-6 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${filter === t.value ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-white border border-gray-100 text-gray-500 hover:border-gray-300"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {properties
-          .filter((p) => filter === "all" || p.type === filter)
-          .map((property) => (
-            <div
-              key={property.id}
-              className="bg-white rounded-3xl border border-gray-100 overflow-hidden group hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300">
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={
-                    property.image_url ||
-                    "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80"
-                  }
-                  alt={property.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-gray-900">
-                  {property.type}
-                </div>
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => navigate(`/properties/${property.id}`)}
-                    className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-orange-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleOpenModal(property)}
-                    className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-orange-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => confirmDelete(property.id)}
-                    className="p-2 bg-white/90 backdrop-blur-sm rounded-xl text-gray-600 hover:text-red-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-              <div className="p-5">
-                <h3 className="font-bold text-gray-900 text-lg mb-1">
-                  {property.name}
-                </h3>
-                <div className="flex items-center gap-1.5 text-gray-400 text-sm mb-4">
-                  <MapPin size={14} />
-                  <span className="truncate">{property.address}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-gray-50 p-3 rounded-2xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">
-                      Total Units
-                    </p>
-                    <p className="font-bold text-gray-900">
-                      {property.total_units}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-2xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">
-                      Occupancy
-                    </p>
-                    <p className="font-bold text-orange-500">
-                      {property.occupancy}%
-                    </p>
-                  </div>
-                </div>
-
-                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-orange-500"
-                    style={{ width: `${property.occupancy}%` }}></div>
-                </div>
-
-                <button
-                  onClick={() => navigate(`/properties/${property.id}`)}
-                  className="w-full mt-5 py-3 bg-gray-50 hover:bg-black hover:text-white text-gray-900 font-bold rounded-2xl transition-all">
-                  View Details
-                </button>
-              </div>
-            </div>
-          ))}
-
-        <button
-          onClick={() => handleOpenModal()}
-          disabled={!organizationId}
-          className="border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-8 text-gray-400 hover:border-orange-500 hover:text-orange-500 transition-all gap-4 disabled:opacity-60 disabled:cursor-not-allowed">
-          <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center">
-            <Plus size={32} />
-          </div>
-          <span className="font-bold">Add New Property</span>
-        </button>
       </div>
 
       {/* Property Modal */}

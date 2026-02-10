@@ -106,12 +106,14 @@ export async function getProperty(id: string) {
   const unitIds = (propertyData.units || []).map((u) => u.id);
   let occupiedUnits = 0;
   if (unitIds.length > 0) {
-    const { count } = await supabase
-      .from("tenants")
+    const { count, error: occupantsError } = await supabase
+      .from("unit_occupants")
       .select("*", { count: "exact", head: true })
       .in("unit_id", unitIds)
-      .eq("status", "active");
-    occupiedUnits = count || 0;
+      .is("left_at", null);
+    if (!occupantsError) {
+      occupiedUnits = count || 0;
+    }
   }
   const totalUnits = propertyData.total_units || propertyData.units?.length || 0;
   const occupancy =
