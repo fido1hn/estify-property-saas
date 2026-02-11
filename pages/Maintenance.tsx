@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MaintenanceRequest, UserRole } from "../types";
 import {
@@ -14,13 +14,13 @@ import {
 import { summarizeMaintenanceRequest } from "../services/geminiService";
 import { useMaintenance, useCreateMaintenance, useUpdateMaintenance, useDeleteMaintenance } from "../hooks/useMaintenance";
 import { DeleteConfirmationModal } from "../components/DeleteConfirmationModal";
+import { useAuth } from "../contexts/AuthContext";
+import { mapDbRoleToUserRole } from "../utils/auth";
 
-interface MaintenanceProps {
-  role: UserRole;
-}
-
-export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
+export const Maintenance: React.FC = () => {
   const navigate = useNavigate();
+  const { role: dbRole } = useAuth();
+  const role = mapDbRoleToUserRole(dbRole);
   const { maintenanceRequests: requests = [], isPending: isRequestsLoading } = useMaintenance();
   const { createMaintenance } = useCreateMaintenance();
   const { updateMaintenance } = useUpdateMaintenance();
@@ -111,7 +111,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({ role }) => {
         </button>
       </header>
 
-      {(role === UserRole.TENANT || role === UserRole.COMPANY_ADMIN) && (
+      {(role === UserRole.Tenant || role === UserRole.Admin) && (
         <div className="bg-orange-50 border border-orange-100 p-8 rounded-3xl space-y-4 shadow-sm">
           <div className="flex items-center gap-2 text-orange-600">
             <Sparkles size={20} />

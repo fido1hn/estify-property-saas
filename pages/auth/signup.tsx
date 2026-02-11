@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Database } from "../../types/database.types";
 import { useSignUp } from "../../hooks/useSignUp";
+import { useQueryClient } from "@tanstack/react-query";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -20,6 +21,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { signUp, completeOwnerSetup, redeemTenantInvite, redeemStaffInvite, loading, error, clearError } = useSignUp();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -95,6 +97,8 @@ export default function Signup() {
       });
 
       if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+        await queryClient.invalidateQueries({ queryKey: ["user_role", userId] });
         sessionStorage.removeItem("signup_user_id");
         sessionStorage.removeItem("signup_onboarding");
         navigate("/");
@@ -109,6 +113,8 @@ export default function Signup() {
       });
 
       if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+        await queryClient.invalidateQueries({ queryKey: ["user_role", userId] });
         sessionStorage.removeItem("signup_user_id");
         sessionStorage.removeItem("signup_onboarding");
         navigate("/");
@@ -122,6 +128,8 @@ export default function Signup() {
       });
 
       if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+        await queryClient.invalidateQueries({ queryKey: ["user_role", userId] });
         sessionStorage.removeItem("signup_user_id");
         sessionStorage.removeItem("signup_onboarding");
         navigate("/");

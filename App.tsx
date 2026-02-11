@@ -17,17 +17,22 @@ import { AuthStateProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { AppLayout } from "./components/layouts/AppLayout";
 import { mapDbRoleToUserRole } from "./utils/auth";
+import { UserRole } from "./types";
 import { Properties } from "./pages/Properties";
 import { PropertyDetails } from "./pages/PropertyDetails";
 import { Tenants } from "./pages/Tenants";
 import { TenantDetails } from "./pages/TenantDetails";
 import { Staff } from "./pages/Staff";
 import { StaffDetails } from "./pages/StaffDetails";
+import { Maintenance } from "./pages/Maintenance";
+import { Billing } from "./pages/Billing";
+import { Messages } from "./pages/Messages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -51,6 +56,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const RoleRoute = ({
+  allowed,
+  children,
+}: {
+  allowed: UserRole[];
+  children: React.ReactNode;
+}) => {
+  const { role, loading } = useAuth();
+  if (loading) return null;
+
+  const userRole = mapDbRoleToUserRole(role);
+  if (!userRole || !allowed.includes(userRole)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -66,11 +89,6 @@ const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return <>{children}</>;
-};
-
-const DashboardRoute = () => {
-  const { role } = useAuth();
-  return <Dashboard role={mapDbRoleToUserRole(role)} />;
 };
 
 const App: React.FC = () => {
@@ -104,30 +122,133 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }>
               <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardRoute />} />
+              <Route
+                path="dashboard"
+                element={
+                  <RoleRoute
+                    allowed={[
+                      UserRole.Owner,
+                      UserRole.Admin,
+                      UserRole.Staff,
+                      UserRole.Tenant,
+                    ]}>
+                    <Dashboard />
+                  </RoleRoute>
+                }
+              />
 
-              <Route path="properties" element={<Properties />} />
-              <Route path="properties/:id" element={<PropertyDetails />} />
+              <Route
+                path="properties"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <Properties />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="properties/:id"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <PropertyDetails />
+                  </RoleRoute>
+                }
+              />
 
-              <Route path="tenants" element={<Tenants />} />
-              <Route path="tenants/:id" element={<TenantDetails />} />
+              <Route
+                path="tenants"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <Tenants />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="tenants/:id"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <TenantDetails />
+                  </RoleRoute>
+                }
+              />
 
-              <Route path="staff" element={<Staff />} />
-              <Route path="staff/:id" element={<StaffDetails />} />
+              <Route
+                path="staff"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <Staff />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="staff/:id"
+                element={
+                  <RoleRoute allowed={[UserRole.Owner, UserRole.Admin]}>
+                    <StaffDetails />
+                  </RoleRoute>
+                }
+              />
 
               {/* Paused: RLS not configured yet for maintenance */}
               {/* <Route path="/maintenance/:id" element={<MaintenanceDetails />} /> */}
 
-              {/* Paused: RLS not configured yet for billing/analytics/messages */}
-              {/* <Route path="/billing" element={<Billing />} /> */}
+              {/* Paused: RLS not configured yet for analytics */}
               {/* <Route path="/analytics" element={<Analytics />} /> */}
-              {/* <Route path="/messages" element={<Messages />} /> */}
-              <Route path="settings" element={<Settings />} />
+              <Route
+                path="maintenance"
+                element={
+                  <RoleRoute
+                    allowed={[
+                      UserRole.Owner,
+                      UserRole.Admin,
+                      UserRole.Staff,
+                      UserRole.Tenant,
+                    ]}>
+                    <Maintenance />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="billing"
+                element={
+                  <RoleRoute
+                    allowed={[UserRole.Owner, UserRole.Admin, UserRole.Tenant]}>
+                    <Billing />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="messages"
+                element={
+                  <RoleRoute
+                    allowed={[
+                      UserRole.Owner,
+                      UserRole.Admin,
+                      UserRole.Staff,
+                      UserRole.Tenant,
+                    ]}>
+                    <Messages />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <RoleRoute
+                    allowed={[
+                      UserRole.Owner,
+                      UserRole.Admin,
+                      UserRole.Staff,
+                      UserRole.Tenant,
+                    ]}>
+                    <Settings />
+                  </RoleRoute>
+                }
+              />
               <Route
                 path="*"
                 element={
                   <div className="flex items-center justify-center h-full">
-                    Page Not Found
+                    Coming soon
                   </div>
                 }
               />

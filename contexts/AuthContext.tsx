@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient";
 import { Database } from "../types";
+import { useAuthProfile, useAuthRole } from "../hooks/useAuthQueries";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -25,47 +26,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthStateProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
-
-    async function fetchProfileAndRole(userId: string) {
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .maybeSingle();
-
-        if (profileError) throw profileError;
-
-        const { data: roleData, error: roleError } = await supabase
-          .from("user_roles")
-          .select("user_role")
-          .eq("id", userId)
-          .maybeSingle();
-
-        if (roleError) throw roleError;
-
-        if (isMounted) {
-          setProfile(profileData ?? null);
-          setRole(roleData?.user_role ?? null);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setProfile(null);
-          setRole(null);
-        }
-        console.error("Error fetching user data:", error);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
@@ -73,9 +37,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
       if (!session?.user) {
         setIsAuthenticated(false);
         setAuthUser(null);
-        setProfile(null);
-        setRole(null);
-        setLoading(false);
+        setAuthLoading(false);
         return;
       }
 
@@ -85,8 +47,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
         email: session.user.email ?? undefined,
         created_at: session.user.created_at,
       });
-      setLoading(true);
-      fetchProfileAndRole(session.user.id);
+      setAuthLoading(false);
     });
 
     const {
@@ -97,9 +58,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
       if (!session?.user) {
         setIsAuthenticated(false);
         setAuthUser(null);
-        setProfile(null);
-        setRole(null);
-        setLoading(false);
+        setAuthLoading(false);
         return;
       }
 
@@ -109,8 +68,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
         email: session.user.email ?? undefined,
         created_at: session.user.created_at,
       });
-      setLoading(true);
-      fetchProfileAndRole(session.user.id);
+      setAuthLoading(false);
     });
 
     return () => {
@@ -118,6 +76,9 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
       subscription?.unsubscribe();
     };
   }, []);
+
+  const { data: profile, isPending: profileLoading } = useAuthProfile(authUser?.id);
+  const { data: role, isPending: roleLoading } = useAuthRole(authUser?.id);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -127,12 +88,14 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
     () => ({
       isAuthenticated,
       authUser: authUser ?? null,
-      profile,
-      role,
-      loading,
+      profile: profile ?? null,
+      role: role ?? null,
+      loading:
+        authLoading ||
+        (!!authUser?.id ? profileLoading || roleLoading : false),
       signOut,
     }),
-    [authUser, isAuthenticated, profile, role, loading],
+    [authUser, isAuthenticated, profile, role, authLoading, profileLoading, roleLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

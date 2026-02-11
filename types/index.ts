@@ -1,32 +1,36 @@
-
-import { Database } from './database.types';
+import { Database } from "./database.types";
 
 // Export Database type for direct usage if needed
-export type { Database } from './database.types';
+export type { Database } from "./database.types";
 
 // Re-export specific Row/Insert/Update types for convenience
-export type PropertyRow = Database['public']['Tables']['properties']['Row'];
-export type PropertyInsert = Database['public']['Tables']['properties']['Insert'];
-export type PropertyUpdate = Database['public']['Tables']['properties']['Update'];
-export type UnitRow = Database['public']['Tables']['units']['Row'];
-export type UnitInsert = Database['public']['Tables']['units']['Insert'];
-export type UnitUpdate = Database['public']['Tables']['units']['Update'];
+export type PropertyRow = Database["public"]["Tables"]["properties"]["Row"];
+export type PropertyInsert =
+  Database["public"]["Tables"]["properties"]["Insert"];
+export type PropertyUpdate =
+  Database["public"]["Tables"]["properties"]["Update"];
+export type UnitRow = Database["public"]["Tables"]["units"]["Row"];
+export type UnitInsert = Database["public"]["Tables"]["units"]["Insert"];
+export type UnitUpdate = Database["public"]["Tables"]["units"]["Update"];
 
-export type TenantRow = Database['public']['Tables']['tenants']['Row'];
-export type TenantInsert = Database['public']['Tables']['tenants']['Insert'];
-export type TenantUpdate = Database['public']['Tables']['tenants']['Update'];
+export type TenantRow = Database["public"]["Tables"]["tenants"]["Row"];
+export type TenantInsert = Database["public"]["Tables"]["tenants"]["Insert"];
+export type TenantUpdate = Database["public"]["Tables"]["tenants"]["Update"];
 
-export type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
-export type MaintenanceRequestRow = Database['public']['Tables']['maintenance_requests']['Row'];
-export type StaffRow = Database['public']['Tables']['staff']['Row'];
-export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+export type InvoiceRow = Database["public"]["Tables"]["invoices"]["Row"];
+export type MaintenanceRequestRow =
+  Database["public"]["Tables"]["maintenance_requests"]["Row"];
+export type StaffRow = Database["public"]["Tables"]["staff"]["Row"];
+export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 // Enums
-export type UserRoleEnum = Database['public']['Enums']['user_role'];
-export type StaffRoleEnum = Database['public']['Enums']['staff_role'];
-export type BuildingTypeEnum = Database['public']['Enums']['buidling_type']; 
-export type MaintenancePriorityEnum = Database['public']['Enums']['maintenance_requests_priority'];
-export type MaintenanceStatusEnum = Database['public']['Enums']['maintenance_requests_status'];
+export type UserRoleEnum = Database["public"]["Enums"]["user_role"];
+export type StaffRoleEnum = Database["public"]["Enums"]["staff_role"];
+export type BuildingTypeEnum = Database["public"]["Enums"]["buidling_type"];
+export type MaintenancePriorityEnum =
+  Database["public"]["Enums"]["maintenance_requests_priority"];
+export type MaintenanceStatusEnum =
+  Database["public"]["Enums"]["maintenance_requests_status"];
 
 // App Domain Types (extending DB types where necessary for UI)
 
@@ -34,7 +38,7 @@ export type MaintenanceStatusEnum = Database['public']['Enums']['maintenance_req
 export interface Property extends PropertyRow {
   // DB has 'total_units', 'image_url'
   // We add UI specific computed fields
-  occupancy: number; 
+  occupancy: number;
   // We keep the DB naming convention as the source of truth
 }
 
@@ -76,15 +80,13 @@ export interface Invoice extends InvoiceRow {
 }
 
 // UI Role Enum (mapping from DB UserRole if needed, or simply strictly using DB enum)
-// The app uses UserRole enum in `App.tsx` for values like PROPERTY_MANAGER that map to 'owner'.
-// We should arguably keep a UI helper enum, but the request emphasized DB truth.
-// However, 'PROPERTY_MANAGER' is not in the DB. 'owner' is.
+// UI-friendly enum that maps cleanly to DB roles.
 // I will keep the custom UserRole enum for the UI logic but ensure it maps cleanly.
 export enum UserRole {
-  PROPERTY_MANAGER = 'owner', // Map to DB value
-  COMPANY_ADMIN = 'admin',
-  MAINTENANCE = 'staff',
-  TENANT = 'tenant'
+  Owner = "owner",
+  Admin = "admin",
+  Staff = "staff",
+  Tenant = "tenant",
 }
 
 export type User = ProfileRow & { role: UserRole | string };

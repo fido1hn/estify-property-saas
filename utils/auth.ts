@@ -3,14 +3,14 @@ import { UserRole } from "../types";
 export function mapDbRoleToUserRole(dbRole: string | null): UserRole {
   switch (dbRole) {
     case "owner":
-      return UserRole.PROPERTY_MANAGER;
+      return UserRole.Owner;
     case "admin":
-      return UserRole.COMPANY_ADMIN;
+      return UserRole.Admin;
     case "staff":
-      return UserRole.MAINTENANCE;
+      return UserRole.Staff;
     case "tenant":
-      return UserRole.TENANT;
+      return UserRole.Tenant;
     default:
-      return UserRole.PROPERTY_MANAGER;
+      return UserRole.Owner;
   }
 }
