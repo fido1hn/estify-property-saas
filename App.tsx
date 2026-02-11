@@ -57,7 +57,9 @@ const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   const searchParams = new URLSearchParams(location.search);
   const allowOnboarding =
     location.pathname.startsWith("/auth/signup") &&
-    searchParams.get("onboarding") === "1";
+    (searchParams.get("onboarding") === "1" ||
+      sessionStorage.getItem("signup_onboarding") === "1" ||
+      !!sessionStorage.getItem("signup_user_id"));
 
   if (isAuthenticated && !allowOnboarding) {
     return <Navigate to="/dashboard" replace />;

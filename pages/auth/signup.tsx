@@ -19,7 +19,7 @@ type UserRole = Database["public"]["Enums"]["user_role"];
 export default function Signup() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { signUp, completeOwnerSetup, redeemTenantInvite, loading, error, clearError } = useSignUp();
+  const { signUp, completeOwnerSetup, redeemTenantInvite, redeemStaffInvite, loading, error, clearError } = useSignUp();
   const [step, setStep] = useState(1);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -66,6 +66,7 @@ export default function Signup() {
     password: string;
   }) => {
     clearError();
+    sessionStorage.setItem("signup_onboarding", "1");
     const { error, userId } = await signUp({
       fullName: data.fullName,
       email: data.email,
@@ -77,6 +78,8 @@ export default function Signup() {
       sessionStorage.setItem("signup_user_id", userId);
       setSearchParams({ onboarding: "1", step: "2" }, { replace: true });
       setStep(2);
+    } else {
+      sessionStorage.removeItem("signup_onboarding");
     }
   };
 
@@ -93,6 +96,7 @@ export default function Signup() {
 
       if (!error) {
         sessionStorage.removeItem("signup_user_id");
+        sessionStorage.removeItem("signup_onboarding");
         navigate("/");
       }
       return;
@@ -106,6 +110,20 @@ export default function Signup() {
 
       if (!error) {
         sessionStorage.removeItem("signup_user_id");
+        sessionStorage.removeItem("signup_onboarding");
+        navigate("/");
+      }
+    }
+
+    if (formData.role === "staff") {
+      const { error } = await redeemStaffInvite({
+        userId,
+        inviteCode: formData.inviteCode.trim(),
+      });
+
+      if (!error) {
+        sessionStorage.removeItem("signup_user_id");
+        sessionStorage.removeItem("signup_onboarding");
         navigate("/");
       }
     }
@@ -276,14 +294,14 @@ export default function Signup() {
 
               <button
                 type="button"
-                disabled
-                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl opacity-60 cursor-not-allowed">
+                onClick={() => selectRole("staff")}
+                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all">
                 <div className="p-3 rounded-full bg-slate-900 group-hover:bg-indigo-500/10 mb-3 transition-colors">
                   <Briefcase className="w-8 h-8 text-indigo-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">Staff</h3>
                 <p className="text-sm text-slate-400 text-center mt-1">
-                  Coming soon
+                  I have an invite code from a property owner.
                 </p>
               </button>
             </div>
@@ -328,7 +346,7 @@ export default function Signup() {
               </div>
             )}
 
-            {formData.role === "tenant" && (
+            {(formData.role === "tenant" || formData.role === "staff") && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">
                   Invite Code

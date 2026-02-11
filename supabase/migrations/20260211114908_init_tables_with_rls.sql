@@ -28,7 +28,7 @@ create type "public"."user_role" as enum ('admin', 'owner', 'tenant', 'staff');
     "due_date" timestamp with time zone not null,
     "paid_at" timestamp with time zone,
     "status" public.invoice_status not null,
-    "updated_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone,
     "id" uuid not null default gen_random_uuid()
       );
 
@@ -45,7 +45,7 @@ alter table "public"."invoices" enable row level security;
     "rent_kobo" bigint not null,
     "created_at" timestamp with time zone not null default now(),
     "lease_status" public.lease_status not null,
-    "updated_at" timestamp with time zone default now()
+    "updated_at" timestamp with time zone
       );
 
 
@@ -58,7 +58,8 @@ alter table "public"."leases" enable row level security;
     "from_status" public.maintenance_requests_status not null,
     "to_status" public.maintenance_requests_status not null,
     "changed_by" uuid not null,
-    "created_at" timestamp with time zone not null default now()
+    "created_at" timestamp with time zone not null default now(),
+    "updated_at" timestamp with time zone
       );
 
 
@@ -101,7 +102,8 @@ alter table "public"."messages" enable row level security;
     "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "created_at" timestamp with time zone not null default now(),
-    "owner_id" uuid not null
+    "owner_id" uuid not null,
+    "updated_at" timestamp with time zone
       );
 
 
@@ -126,7 +128,8 @@ alter table "public"."payments" enable row level security;
     "full_name" text not null,
     "email" text not null,
     "avatar_url" text,
-    "phone_number" text
+    "phone_number" text,
+    "updated_at" timestamp with time zone
       );
 
 
@@ -142,7 +145,7 @@ alter table "public"."profiles" enable row level security;
     "total_units" smallint not null,
     "created_at" timestamp with time zone not null default now(),
     "type" public.buidling_type not null,
-    "updated_at" timestamp with time zone default now()
+    "updated_at" timestamp with time zone
       );
 
 
@@ -164,7 +167,8 @@ alter table "public"."staff" enable row level security;
     "assigned_at" timestamp with time zone not null default now(),
     "staff_id" uuid not null,
     "property_id" uuid not null,
-    "role" public.staff_role not null
+    "role" public.staff_role not null,
+    "updated_at" timestamp with time zone
       );
 
 
@@ -218,7 +222,7 @@ alter table "public"."tenants" enable row level security;
     "created_at" timestamp with time zone not null default now(),
     "tenant_id" uuid not null,
     "left_at" timestamp with time zone,
-    "updated_at" timestamp with time zone default now()
+    "updated_at" timestamp with time zone
       );
 
 
@@ -231,7 +235,7 @@ alter table "public"."unit_occupants" enable row level security;
     "property_id" uuid not null,
     "unit_number" smallint not null,
     "unit_description" text,
-    "updated_at" timestamp with time zone default now()
+    "updated_at" timestamp with time zone
       );
 
 

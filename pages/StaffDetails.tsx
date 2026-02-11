@@ -39,7 +39,7 @@ export const StaffDetails: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
-          <p className="text-sm text-gray-500">{staff.role} • Employee ID: {staff.user_id}</p>
+          <p className="text-sm text-gray-500">Employee ID: {staff.id}</p>
         </div>
         <div className="ml-auto flex gap-3">
           <button className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500"><Edit2 size={18} /></button>
@@ -50,7 +50,7 @@ export const StaffDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
            <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm flex flex-col md:flex-row gap-8 items-start">
-              <img src={staff.profiles?.avatar_url || `https://picsum.photos/seed/${staff.user_id}/200`} className="w-32 h-32 rounded-[32px] object-cover shrink-0" />
+              <img src={staff.profiles?.avatar_url || `https://picsum.photos/seed/${staff.id}/200`} className="w-32 h-32 rounded-[32px] object-cover shrink-0" />
               <div className="flex-1 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                    <div className="flex items-center gap-3 text-gray-600">
@@ -59,11 +59,11 @@ export const StaffDetails: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Phone size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{staff.phone_number}</span>
+                     <span className="text-sm font-medium">No phone on file</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <ShieldCheck size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{staff.role} Specialization</span>
+                     <span className="text-sm font-medium">Role assigned via staffing</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <CheckCircle2 size={18} className="text-orange-500" />

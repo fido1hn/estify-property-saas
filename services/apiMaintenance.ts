@@ -46,8 +46,7 @@ export async function getMaintenanceRequest(id: string) {
         .select(`
             *,
             properties:property_id (name),
-            units:unit_id (id),
-            tenants:tenant_id (user_id)
+            units:unit_id (id)
         `)
         .eq('id', id)
         .single();

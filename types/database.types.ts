@@ -134,6 +134,7 @@ export type Database = {
           id: string
           request_id: string
           to_status: Database["public"]["Enums"]["maintenance_requests_status"]
+          updated_at: string | null
         }
         Insert: {
           changed_by: string
@@ -142,6 +143,7 @@ export type Database = {
           id?: string
           request_id: string
           to_status: Database["public"]["Enums"]["maintenance_requests_status"]
+          updated_at?: string | null
         }
         Update: {
           changed_by?: string
@@ -150,6 +152,7 @@ export type Database = {
           id?: string
           request_id?: string
           to_status?: Database["public"]["Enums"]["maintenance_requests_status"]
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -290,18 +293,21 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           owner_id: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           owner_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -353,6 +359,7 @@ export type Database = {
           full_name: string
           id: string
           phone_number: string | null
+          updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -361,6 +368,7 @@ export type Database = {
           full_name: string
           id?: string
           phone_number?: string | null
+          updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -369,6 +377,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone_number?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -449,6 +458,7 @@ export type Database = {
           property_id: string
           role: Database["public"]["Enums"]["staff_role"]
           staff_id: string
+          updated_at: string | null
         }
         Insert: {
           assigned_at?: string
@@ -456,6 +466,7 @@ export type Database = {
           property_id: string
           role: Database["public"]["Enums"]["staff_role"]
           staff_id: string
+          updated_at?: string | null
         }
         Update: {
           assigned_at?: string
@@ -463,6 +474,7 @@ export type Database = {
           property_id?: string
           role?: Database["public"]["Enums"]["staff_role"]
           staff_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {

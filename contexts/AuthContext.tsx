@@ -38,7 +38,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
           .from("profiles")
           .select("*")
           .eq("id", userId)
-          .single();
+          .maybeSingle();
 
         if (profileError) throw profileError;
 
@@ -46,7 +46,7 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
           .from("user_roles")
           .select("user_role")
           .eq("id", userId)
-          .single();
+          .maybeSingle();
 
         if (roleError) throw roleError;
 

@@ -21,6 +21,11 @@ interface RedeemInvitePayload {
   inviteCode: string;
 }
 
+interface RedeemStaffInvitePayload {
+  userId: string;
+  inviteCode: string;
+}
+
 export function useSignUp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,5 +153,38 @@ export function useSignUp() {
     }
   };
 
-  return { signUp, completeOwnerSetup, redeemTenantInvite, loading, error, clearError };
+  const redeemStaffInvite = async (payload: RedeemStaffInvitePayload) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { userId, inviteCode } = payload;
+
+      if (!inviteCode) {
+        throw new Error("Invite code is required");
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "redeem-staff-invite",
+        {
+          body: { invite_code: inviteCode, user_id: userId },
+        },
+      );
+
+      if (fnError) throw fnError;
+      if (!data?.success) {
+        throw new Error("Invite redemption failed");
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      const message = err?.message || "An error occurred during invite redemption";
+      setError(message);
+      return { error: err };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { signUp, completeOwnerSetup, redeemTenantInvite, redeemStaffInvite, loading, error, clearError };
 }

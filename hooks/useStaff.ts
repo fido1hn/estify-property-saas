@@ -7,11 +7,11 @@ import { useSearchParams } from "react-router-dom";
 export function useStaff() {
   const [searchParams] = useSearchParams();
 
-  // Likely filtering by Role or Status
-  const roleFilter = searchParams.get("role");
-  const filter = !roleFilter || roleFilter === "all"
+  // Filter by status (staff role now lives in staff_assignments)
+  const statusFilter = searchParams.get("status");
+  const filter = !statusFilter || statusFilter === "all"
     ? null
-    : { field: "role", value: roleFilter };
+    : { field: "status", value: statusFilter };
 
   const sortByRaw = searchParams.get("sortBy") || "created_at-desc";
   const [field, direction] = sortByRaw.split("-");
