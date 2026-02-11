@@ -8,6 +8,8 @@ create type "public"."maintenance_requests_priority" as enum ('low', 'medium', '
 
 create type "public"."maintenance_requests_status" as enum ('open', 'in_progress', 'resolved', 'closed');
 
+create type "public"."staff_invite_status" as enum ('pending', 'redeemed', 'expired', 'revoked');
+
 create type "public"."staff_role" as enum ('security', 'cleaning', 'electrical', 'manager', 'plumbing');
 
 create type "public"."staff_status" as enum ('active', 'inactive');
@@ -169,6 +171,22 @@ alter table "public"."staff" enable row level security;
 alter table "public"."staff_assignments" enable row level security;
 
 
+  create table "public"."staff_invites" (
+    "id" uuid not null default gen_random_uuid(),
+    "created_at" timestamp with time zone not null default now(),
+    "text_code" text not null,
+    "organization_id" uuid not null,
+    "created_by" uuid not null,
+    "expires_at" timestamp with time zone,
+    "redeemed_by" uuid,
+    "status" public.staff_invite_status not null,
+    "redeemed_at" timestamp with time zone
+      );
+
+
+alter table "public"."staff_invites" enable row level security;
+
+
   create table "public"."tenant_invites" (
     "id" uuid not null default gen_random_uuid(),
     "created_at" timestamp with time zone not null default now(),
@@ -253,6 +271,8 @@ CREATE UNIQUE INDEX properties_pkey ON public.properties USING btree (id);
 
 CREATE UNIQUE INDEX staff_assignments_pkey ON public.staff_assignments USING btree (id);
 
+CREATE UNIQUE INDEX staff_invites_pkey ON public.staff_invites USING btree (id);
+
 CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (id);
 
 CREATE UNIQUE INDEX tenant_invites_pkey ON public.tenant_invites USING btree (id);
@@ -290,6 +310,8 @@ alter table "public"."properties" add constraint "properties_pkey" PRIMARY KEY u
 alter table "public"."staff" add constraint "staff_pkey" PRIMARY KEY using index "staff_pkey";
 
 alter table "public"."staff_assignments" add constraint "staff_assignments_pkey" PRIMARY KEY using index "staff_assignments_pkey";
+
+alter table "public"."staff_invites" add constraint "staff_invites_pkey" PRIMARY KEY using index "staff_invites_pkey";
 
 alter table "public"."tenant_invites" add constraint "tenant_invites_pkey" PRIMARY KEY using index "tenant_invites_pkey";
 
@@ -380,6 +402,18 @@ alter table "public"."staff_assignments" validate constraint "staff_assignments_
 alter table "public"."staff_assignments" add constraint "staff_assignments_staff_id_fkey" FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."staff_assignments" validate constraint "staff_assignments_staff_id_fkey";
+
+alter table "public"."staff_invites" add constraint "staff_invites_created_by_fkey" FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."staff_invites" validate constraint "staff_invites_created_by_fkey";
+
+alter table "public"."staff_invites" add constraint "staff_invites_organization_id_fkey" FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."staff_invites" validate constraint "staff_invites_organization_id_fkey";
+
+alter table "public"."staff_invites" add constraint "staff_invites_redeemed_by_fkey" FOREIGN KEY (redeemed_by) REFERENCES public.staff(id) ON UPDATE CASCADE ON DELETE SET NULL not valid;
+
+alter table "public"."staff_invites" validate constraint "staff_invites_redeemed_by_fkey";
 
 alter table "public"."tenant_invites" add constraint "tenant_invites_created_by_fkey" FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
@@ -879,6 +913,62 @@ grant truncate on table "public"."staff_assignments" to "service_role";
 
 grant update on table "public"."staff_assignments" to "service_role";
 
+grant delete on table "public"."staff_invites" to "anon";
+
+grant insert on table "public"."staff_invites" to "anon";
+
+grant references on table "public"."staff_invites" to "anon";
+
+grant select on table "public"."staff_invites" to "anon";
+
+grant trigger on table "public"."staff_invites" to "anon";
+
+grant truncate on table "public"."staff_invites" to "anon";
+
+grant update on table "public"."staff_invites" to "anon";
+
+grant delete on table "public"."staff_invites" to "authenticated";
+
+grant insert on table "public"."staff_invites" to "authenticated";
+
+grant references on table "public"."staff_invites" to "authenticated";
+
+grant select on table "public"."staff_invites" to "authenticated";
+
+grant trigger on table "public"."staff_invites" to "authenticated";
+
+grant truncate on table "public"."staff_invites" to "authenticated";
+
+grant update on table "public"."staff_invites" to "authenticated";
+
+grant delete on table "public"."staff_invites" to "postgres";
+
+grant insert on table "public"."staff_invites" to "postgres";
+
+grant references on table "public"."staff_invites" to "postgres";
+
+grant select on table "public"."staff_invites" to "postgres";
+
+grant trigger on table "public"."staff_invites" to "postgres";
+
+grant truncate on table "public"."staff_invites" to "postgres";
+
+grant update on table "public"."staff_invites" to "postgres";
+
+grant delete on table "public"."staff_invites" to "service_role";
+
+grant insert on table "public"."staff_invites" to "service_role";
+
+grant references on table "public"."staff_invites" to "service_role";
+
+grant select on table "public"."staff_invites" to "service_role";
+
+grant trigger on table "public"."staff_invites" to "service_role";
+
+grant truncate on table "public"."staff_invites" to "service_role";
+
+grant update on table "public"."staff_invites" to "service_role";
+
 grant delete on table "public"."tenant_invites" to "anon";
 
 grant insert on table "public"."tenant_invites" to "anon";
@@ -1217,6 +1307,20 @@ using ((EXISTS ( SELECT 1
 with check ((EXISTS ( SELECT 1
    FROM public.organizations
   WHERE ((organizations.id = properties.organization_id) AND (organizations.owner_id = ( SELECT auth.uid() AS uid))))));
+
+
+
+  create policy "Enable CRUD for owners"
+  on "public"."staff_invites"
+  as permissive
+  for all
+  to authenticated
+using ((EXISTS ( SELECT 1
+   FROM public.organizations o
+  WHERE ((o.id = staff_invites.organization_id) AND (o.owner_id = ( SELECT auth.uid() AS uid))))))
+with check ((EXISTS ( SELECT 1
+   FROM public.organizations o
+  WHERE ((o.id = staff_invites.organization_id) AND (o.owner_id = ( SELECT auth.uid() AS uid))))));
 
 
 

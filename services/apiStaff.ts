@@ -7,12 +7,10 @@ export async function getStaffList({ filter, sortBy, page }: { filter?: any, sor
     let query: any = supabase
     .from("staff")
     .select(`
-        user_id,
-        phone_number,
-        role,
+        id,
         status,
         created_at,
-        profiles:user_id (full_name, email, avatar_url)
+        profiles!staff_id_fkey (full_name, email, avatar_url)
     `, { count: 'exact' });
 
     if (filter && filter.value) {
@@ -47,14 +45,12 @@ export async function getStaff(id: string) {
     const { data, error } = await supabase
     .from("staff")
     .select(`
-        user_id,
-        phone_number,
-        role,
+        id,
         status,
         created_at,
-        profiles:user_id (full_name, email, avatar_url)
+        profiles!staff_id_fkey (full_name, email, avatar_url)
     `)
-    .eq('user_id', id)
+    .eq('id', id)
     .single();
 
     if (error) {
@@ -69,7 +65,7 @@ export async function updateStaff(id: string, updates: any) {
     const { data, error } = await supabase
         .from('staff')
         .update(updates)
-        .eq('user_id', id)
+        .eq('id', id)
         .select()
         .single();
     if (error) throw new Error("Could not update staff");
@@ -77,19 +73,11 @@ export async function updateStaff(id: string, updates: any) {
 }
 
 export async function deleteStaff(id: string) {
-    const { error } = await supabase.from('staff').delete().eq('user_id', id);
+    const { error } = await supabase.from('staff').delete().eq('id', id);
     if (error) throw new Error("Could not delete staff");
 }
 
 export async function createStaff(newStaff: any) {
-    // In a real application, this would trigger an Invite User flow via Supabase Admin API / Edge Function.
-    // Client-side code cannot create auth.users directly.
-    // For this demo/refactor, we will mock the response.
-    console.warn("Mocking staff creation as client cannot create Auth users directly.");
-    
-    return {
-        user_id: `mock-${Date.now()}`,
-        ...newStaff,
-        created_at: new Date().toISOString()
-    };
+    console.warn("Direct staff creation is disabled. Use staff invites instead.");
+    return null;
 }

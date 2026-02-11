@@ -19,7 +19,7 @@ export async function getTenants({
     .select(
       `
         *,
-        profiles:id (full_name, email, phone_number)
+        profiles!tenants_id_fkey (full_name, email, phone_number)
     `,
       { count: "exact" },
     );
@@ -107,7 +107,7 @@ export async function getTenant(id: string) {
     .select(
       `
         *,
-        profiles:id (full_name, email, phone_number)
+        profiles!tenants_id_fkey (full_name, email, phone_number)
       `,
     )
     .eq("id", id)

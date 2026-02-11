@@ -481,6 +481,64 @@ export type Database = {
           },
         ]
       }
+      staff_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          organization_id: string
+          redeemed_at: string | null
+          redeemed_by: string | null
+          status: Database["public"]["Enums"]["staff_invite_status"]
+          text_code: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          organization_id: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status: Database["public"]["Enums"]["staff_invite_status"]
+          text_code: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          status?: Database["public"]["Enums"]["staff_invite_status"]
+          text_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_invites_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_invites: {
         Row: {
           created_at: string
@@ -682,6 +740,7 @@ export type Database = {
         | "in_progress"
         | "resolved"
         | "closed"
+      staff_invite_status: "pending" | "redeemed" | "expired" | "revoked"
       staff_role:
         | "security"
         | "cleaning"
@@ -832,6 +891,7 @@ export const Constants = {
         "resolved",
         "closed",
       ],
+      staff_invite_status: ["pending", "redeemed", "expired", "revoked"],
       staff_role: ["security", "cleaning", "electrical", "manager", "plumbing"],
       staff_status: ["active", "inactive"],
       tenant_invite_status: ["pending", "redeemed", "expired", "revoked"],

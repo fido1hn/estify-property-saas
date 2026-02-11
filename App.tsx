@@ -21,6 +21,8 @@ import { Properties } from "./pages/Properties";
 import { PropertyDetails } from "./pages/PropertyDetails";
 import { Tenants } from "./pages/Tenants";
 import { TenantDetails } from "./pages/TenantDetails";
+import { Staff } from "./pages/Staff";
+import { StaffDetails } from "./pages/StaffDetails";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,9 +110,8 @@ const App: React.FC = () => {
               <Route path="tenants" element={<Tenants />} />
               <Route path="tenants/:id" element={<TenantDetails />} />
 
-              {/* Paused: RLS not configured yet for staff */}
-              {/* <Route path="/staff" element={<Staff />} /> */}
-              {/* <Route path="/staff/:id" element={<StaffDetails />} /> */}
+              <Route path="staff" element={<Staff />} />
+              <Route path="staff/:id" element={<StaffDetails />} />
 
               {/* Paused: RLS not configured yet for maintenance */}
               {/* <Route path="/maintenance/:id" element={<MaintenanceDetails />} /> */}
