@@ -55,6 +55,45 @@ The app will be available at `http://localhost:5173` by default.
 - Generated types live in `types/database.types.ts`.
 - The client is initialized in `services/supabaseClient.ts`.
 
+## Local Supabase (CLI)
+
+### Requirements
+- Docker Desktop running (Supabase local stack uses Docker)
+- Supabase CLI installed
+
+Install the CLI (one option):
+```bash
+pnpm add -g supabase
+```
+
+### Start the local stack
+From the project root:
+```bash
+supabase start
+```
+
+This will start local containers for Auth, Postgres, Storage, and Studio.
+
+### Set local env values
+After `supabase start`, copy the local API URL and anon key from the CLI output (or run `supabase status`), then update `.env`:
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_SERVICE_ROLE_KEY=
+```
+
+### Run the app against local Supabase
+```bash
+pnpm dev
+```
+
+### Useful CLI commands
+```bash
+supabase status      # show local URLs/keys
+supabase db reset    # reset and re-apply migrations/seed (destructive)
+supabase stop        # stop local containers
+```
+
 ### Optional: Seed Data
 Seeding uses the service role key. Make sure `VITE_SUPABASE_SERVICE_ROLE_KEY` is set.
 ```bash

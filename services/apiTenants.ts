@@ -3,16 +3,26 @@ import { supabase } from "./supabaseClient";
 import { PAGE_SIZE } from "../utils/constants";
 import { Tenant } from "../types";
 
-export async function getTenants({ filter, sortBy, page }: { filter?: any, sortBy?: any, page?: number } = {}) {
+type UnitLookup = {
+  id: string;
+  unit_number: number;
+  properties?: { name: string | null } | null;
+};
+
+export async function getTenants({
+  filter,
+  sortBy,
+  page,
+}: { filter?: any; sortBy?: any; page?: number } = {}) {
   let query: any = supabase
     .from("tenants")
-    .select(`
+    .select(
+      `
         *,
-        profiles:user_id (full_name, email),
-        units:unit_id (
-            properties:property_id (name)
-        )
-    `, { count: 'exact' });
+        profiles:id (full_name, email, phone_number)
+    `,
+      { count: "exact" },
+    );
 
   if (filter) {
      if (filter.field && filter.value) query = query.eq(filter.field, filter.value);
@@ -37,36 +47,107 @@ export async function getTenants({ filter, sortBy, page }: { filter?: any, sortB
     throw new Error("Tenants could not be loaded");
   }
 
-  // Cast data to any[] to avoid excessive type instantiation depth with the deep joins
-  const formattedData: Tenant[] = (data as any[] || []).map((t: any) => ({
-      ...t
-      // We pass the raw structure which matches the Tenant type defined in types/index.ts
+  const tenants = (data as Tenant[]) || [];
+  const tenantIds = tenants.map((t) => t.id).filter(Boolean);
+
+  let activeUnitByTenant: Record<
+    string,
+    { id: string; unit_number: number; property_name?: string | null } | null
+  > = {};
+
+  if (tenantIds.length > 0) {
+    const { data: occupants } = await supabase
+      .from("unit_occupants")
+      .select("tenant_id, unit_id")
+      .in("tenant_id", tenantIds)
+      .is("left_at", null);
+
+    const unitIds = Array.from(
+      new Set((occupants || []).map((o) => o.unit_id).filter(Boolean)),
+    );
+
+    let unitsById: Record<string, UnitLookup> = {};
+    if (unitIds.length > 0) {
+      const { data: unitsData } = await supabase
+        .from("units")
+        .select("id, unit_number, properties:property_id (name)")
+        .in("id", unitIds);
+
+      unitsById = (unitsData as UnitLookup[] || []).reduce((acc, unit) => {
+        acc[unit.id] = unit;
+        return acc;
+      }, {} as Record<string, UnitLookup>);
+    }
+
+    for (const occ of occupants || []) {
+      if (!activeUnitByTenant[occ.tenant_id]) {
+        const unit = unitsById[occ.unit_id];
+        activeUnitByTenant[occ.tenant_id] = unit
+          ? {
+              id: unit.id,
+              unit_number: unit.unit_number,
+              property_name: unit.properties?.name ?? null,
+            }
+          : null;
+      }
+    }
+  }
+
+  const formattedData: Tenant[] = tenants.map((t) => ({
+    ...t,
+    active_unit: activeUnitByTenant[t.id] || null,
   }));
 
   return { data: formattedData, count };
 }
 
 export async function getTenant(id: string) {
-  let query: any = supabase.from('tenants');
-  
-  query = query.select(`
+  const { data, error } = await supabase
+    .from("tenants")
+    .select(
+      `
         *,
-        profiles:user_id (full_name, email),
-        units:unit_id (
-            properties:property_id (name)
-        )
-    `)
-    .eq('id', id)
+        profiles:id (full_name, email, phone_number)
+      `,
+    )
+    .eq("id", id)
     .single();
-  
-  const { data, error } = await query;
   
   if (error) {
       console.error(error);
       throw new Error("Tenant not found");
   }
 
-  return data as any as Tenant;
+  const tenant = data as Tenant;
+
+  const { data: occupants } = await supabase
+    .from("unit_occupants")
+    .select("tenant_id, unit_id")
+    .eq("tenant_id", id)
+    .is("left_at", null);
+
+  const unitId = occupants?.[0]?.unit_id;
+  if (!unitId) {
+    return { ...tenant, active_unit: null };
+  }
+
+  const { data: unitData } = await supabase
+    .from("units")
+    .select("id, unit_number, properties:property_id (name)")
+    .eq("id", unitId)
+    .single();
+
+  const unit = unitData as UnitLookup | null;
+  return {
+    ...tenant,
+    active_unit: unit
+      ? {
+          id: unit.id,
+          unit_number: unit.unit_number,
+          property_name: unit.properties?.name ?? null,
+        }
+      : null,
+  };
 }
 
 // Update ONLY

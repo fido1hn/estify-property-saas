@@ -12,6 +12,8 @@ create type "public"."staff_role" as enum ('security', 'cleaning', 'electrical',
 
 create type "public"."staff_status" as enum ('active', 'inactive');
 
+create type "public"."tenant_invite_status" as enum ('pending', 'redeemed', 'expired', 'revoked');
+
 create type "public"."tenant_status" as enum ('active', 'terminated', 'pending');
 
 create type "public"."user_role" as enum ('admin', 'owner', 'tenant', 'staff');
@@ -167,6 +169,22 @@ alter table "public"."staff" enable row level security;
 alter table "public"."staff_assignments" enable row level security;
 
 
+  create table "public"."tenant_invites" (
+    "id" uuid not null default gen_random_uuid(),
+    "created_at" timestamp with time zone not null default now(),
+    "text_code" text not null,
+    "organization_id" uuid not null,
+    "created_by" uuid not null,
+    "expires_at" timestamp with time zone,
+    "redeemed_at" timestamp with time zone,
+    "redeemed_by" uuid,
+    "status" public.tenant_invite_status not null
+      );
+
+
+alter table "public"."tenant_invites" enable row level security;
+
+
   create table "public"."tenants" (
     "id" uuid not null,
     "created_at" timestamp with time zone not null default now(),
@@ -237,6 +255,10 @@ CREATE UNIQUE INDEX staff_assignments_pkey ON public.staff_assignments USING btr
 
 CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (id);
 
+CREATE UNIQUE INDEX tenant_invites_pkey ON public.tenant_invites USING btree (id);
+
+CREATE UNIQUE INDEX tenant_invites_text_code_key ON public.tenant_invites USING btree (text_code);
+
 CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id);
 
 CREATE UNIQUE INDEX unit_occupants_pkey ON public.unit_occupants USING btree (unit_id, tenant_id);
@@ -268,6 +290,8 @@ alter table "public"."properties" add constraint "properties_pkey" PRIMARY KEY u
 alter table "public"."staff" add constraint "staff_pkey" PRIMARY KEY using index "staff_pkey";
 
 alter table "public"."staff_assignments" add constraint "staff_assignments_pkey" PRIMARY KEY using index "staff_assignments_pkey";
+
+alter table "public"."tenant_invites" add constraint "tenant_invites_pkey" PRIMARY KEY using index "tenant_invites_pkey";
 
 alter table "public"."tenants" add constraint "tenants_pkey" PRIMARY KEY using index "tenants_pkey";
 
@@ -356,6 +380,20 @@ alter table "public"."staff_assignments" validate constraint "staff_assignments_
 alter table "public"."staff_assignments" add constraint "staff_assignments_staff_id_fkey" FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."staff_assignments" validate constraint "staff_assignments_staff_id_fkey";
+
+alter table "public"."tenant_invites" add constraint "tenant_invites_created_by_fkey" FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."tenant_invites" validate constraint "tenant_invites_created_by_fkey";
+
+alter table "public"."tenant_invites" add constraint "tenant_invites_organization_id_fkey" FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."tenant_invites" validate constraint "tenant_invites_organization_id_fkey";
+
+alter table "public"."tenant_invites" add constraint "tenant_invites_redeemed_by_fkey" FOREIGN KEY (redeemed_by) REFERENCES public.tenants(id) ON UPDATE CASCADE ON DELETE SET NULL not valid;
+
+alter table "public"."tenant_invites" validate constraint "tenant_invites_redeemed_by_fkey";
+
+alter table "public"."tenant_invites" add constraint "tenant_invites_text_code_key" UNIQUE using index "tenant_invites_text_code_key";
 
 alter table "public"."tenants" add constraint "tenants_id_fkey" FOREIGN KEY (id) REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
@@ -448,20 +486,6 @@ grant trigger on table "public"."leases" to "authenticated";
 grant truncate on table "public"."leases" to "authenticated";
 
 grant update on table "public"."leases" to "authenticated";
-
-grant delete on table "public"."leases" to "postgres";
-
-grant insert on table "public"."leases" to "postgres";
-
-grant references on table "public"."leases" to "postgres";
-
-grant select on table "public"."leases" to "postgres";
-
-grant trigger on table "public"."leases" to "postgres";
-
-grant truncate on table "public"."leases" to "postgres";
-
-grant update on table "public"."leases" to "postgres";
 
 grant delete on table "public"."leases" to "service_role";
 
@@ -841,20 +865,6 @@ grant truncate on table "public"."staff_assignments" to "authenticated";
 
 grant update on table "public"."staff_assignments" to "authenticated";
 
-grant delete on table "public"."staff_assignments" to "postgres";
-
-grant insert on table "public"."staff_assignments" to "postgres";
-
-grant references on table "public"."staff_assignments" to "postgres";
-
-grant select on table "public"."staff_assignments" to "postgres";
-
-grant trigger on table "public"."staff_assignments" to "postgres";
-
-grant truncate on table "public"."staff_assignments" to "postgres";
-
-grant update on table "public"."staff_assignments" to "postgres";
-
 grant delete on table "public"."staff_assignments" to "service_role";
 
 grant insert on table "public"."staff_assignments" to "service_role";
@@ -868,6 +878,62 @@ grant trigger on table "public"."staff_assignments" to "service_role";
 grant truncate on table "public"."staff_assignments" to "service_role";
 
 grant update on table "public"."staff_assignments" to "service_role";
+
+grant delete on table "public"."tenant_invites" to "anon";
+
+grant insert on table "public"."tenant_invites" to "anon";
+
+grant references on table "public"."tenant_invites" to "anon";
+
+grant select on table "public"."tenant_invites" to "anon";
+
+grant trigger on table "public"."tenant_invites" to "anon";
+
+grant truncate on table "public"."tenant_invites" to "anon";
+
+grant update on table "public"."tenant_invites" to "anon";
+
+grant delete on table "public"."tenant_invites" to "authenticated";
+
+grant insert on table "public"."tenant_invites" to "authenticated";
+
+grant references on table "public"."tenant_invites" to "authenticated";
+
+grant select on table "public"."tenant_invites" to "authenticated";
+
+grant trigger on table "public"."tenant_invites" to "authenticated";
+
+grant truncate on table "public"."tenant_invites" to "authenticated";
+
+grant update on table "public"."tenant_invites" to "authenticated";
+
+grant delete on table "public"."tenant_invites" to "postgres";
+
+grant insert on table "public"."tenant_invites" to "postgres";
+
+grant references on table "public"."tenant_invites" to "postgres";
+
+grant select on table "public"."tenant_invites" to "postgres";
+
+grant trigger on table "public"."tenant_invites" to "postgres";
+
+grant truncate on table "public"."tenant_invites" to "postgres";
+
+grant update on table "public"."tenant_invites" to "postgres";
+
+grant delete on table "public"."tenant_invites" to "service_role";
+
+grant insert on table "public"."tenant_invites" to "service_role";
+
+grant references on table "public"."tenant_invites" to "service_role";
+
+grant select on table "public"."tenant_invites" to "service_role";
+
+grant trigger on table "public"."tenant_invites" to "service_role";
+
+grant truncate on table "public"."tenant_invites" to "service_role";
+
+grant update on table "public"."tenant_invites" to "service_role";
 
 grant delete on table "public"."tenants" to "anon";
 
@@ -938,20 +1004,6 @@ grant trigger on table "public"."unit_occupants" to "authenticated";
 grant truncate on table "public"."unit_occupants" to "authenticated";
 
 grant update on table "public"."unit_occupants" to "authenticated";
-
-grant delete on table "public"."unit_occupants" to "postgres";
-
-grant insert on table "public"."unit_occupants" to "postgres";
-
-grant references on table "public"."unit_occupants" to "postgres";
-
-grant select on table "public"."unit_occupants" to "postgres";
-
-grant trigger on table "public"."unit_occupants" to "postgres";
-
-grant truncate on table "public"."unit_occupants" to "postgres";
-
-grant update on table "public"."unit_occupants" to "postgres";
 
 grant delete on table "public"."unit_occupants" to "service_role";
 
@@ -1165,6 +1217,20 @@ using ((EXISTS ( SELECT 1
 with check ((EXISTS ( SELECT 1
    FROM public.organizations
   WHERE ((organizations.id = properties.organization_id) AND (organizations.owner_id = ( SELECT auth.uid() AS uid))))));
+
+
+
+  create policy "Enable owners CRUD on tenant invites"
+  on "public"."tenant_invites"
+  as permissive
+  for all
+  to authenticated
+using ((EXISTS ( SELECT 1
+   FROM public.organizations o
+  WHERE ((o.id = tenant_invites.organization_id) AND (o.owner_id = ( SELECT auth.uid() AS uid))))))
+with check ((EXISTS ( SELECT 1
+   FROM public.organizations o
+  WHERE ((o.id = tenant_invites.organization_id) AND (o.owner_id = ( SELECT auth.uid() AS uid))))));
 
 
 

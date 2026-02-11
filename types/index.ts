@@ -44,11 +44,12 @@ export interface Tenant extends TenantRow {
   profiles?: {
     full_name: string;
     email: string;
+    phone_number?: string | null;
   } | null;
-  units?: {
-    properties?: {
-      name: string;
-    } | null;
+  active_unit?: {
+    id: string;
+    unit_number: number;
+    property_name?: string | null;
   } | null;
 }
 

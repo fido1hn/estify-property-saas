@@ -19,6 +19,8 @@ import { AppLayout } from "./components/layouts/AppLayout";
 import { mapDbRoleToUserRole } from "./utils/auth";
 import { Properties } from "./pages/Properties";
 import { PropertyDetails } from "./pages/PropertyDetails";
+import { Tenants } from "./pages/Tenants";
+import { TenantDetails } from "./pages/TenantDetails";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,9 +105,8 @@ const App: React.FC = () => {
               <Route path="properties" element={<Properties />} />
               <Route path="properties/:id" element={<PropertyDetails />} />
 
-              {/* Paused: RLS not configured yet for tenants */}
-              {/* <Route path="/tenants" element={<Tenants />} /> */}
-              {/* <Route path="/tenants/:id" element={<TenantDetails />} /> */}
+              <Route path="tenants" element={<Tenants />} />
+              <Route path="tenants/:id" element={<TenantDetails />} />
 
               {/* Paused: RLS not configured yet for staff */}
               {/* <Route path="/staff" element={<Staff />} /> */}

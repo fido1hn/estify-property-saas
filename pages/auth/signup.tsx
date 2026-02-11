@@ -19,13 +19,14 @@ type UserRole = Database["public"]["Enums"]["user_role"];
 export default function Signup() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { signUp, completeOwnerSetup, loading, error, clearError } = useSignUp();
+  const { signUp, completeOwnerSetup, redeemTenantInvite, loading, error, clearError } = useSignUp();
   const [step, setStep] = useState(1);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     role: "",
     organizationName: "",
+    inviteCode: "",
   });
 
   useEffect(() => {
@@ -83,20 +84,40 @@ export default function Signup() {
     e.preventDefault();
     if (!userId) return;
 
-    const { error } = await completeOwnerSetup({
-      userId,
-      role: formData.role as UserRole,
-      organizationName: formData.organizationName,
-    });
+    if (formData.role === "owner") {
+      const { error } = await completeOwnerSetup({
+        userId,
+        role: formData.role as UserRole,
+        organizationName: formData.organizationName,
+      });
 
-    if (!error) {
-      sessionStorage.removeItem("signup_user_id");
-      navigate("/");
+      if (!error) {
+        sessionStorage.removeItem("signup_user_id");
+        navigate("/");
+      }
+      return;
+    }
+
+    if (formData.role === "tenant") {
+      const { error } = await redeemTenantInvite({
+        userId,
+        inviteCode: formData.inviteCode.trim(),
+      });
+
+      if (!error) {
+        sessionStorage.removeItem("signup_user_id");
+        navigate("/");
+      }
     }
   };
 
   const handleOrgNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, organizationName: e.target.value });
+    clearError();
+  };
+
+  const handleInviteCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, inviteCode: e.target.value });
     clearError();
   };
 
@@ -242,14 +263,14 @@ export default function Signup() {
 
               <button
                 type="button"
-                disabled
-                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl opacity-60 cursor-not-allowed">
+                onClick={() => selectRole("tenant")}
+                className="group relative flex flex-col items-center p-6 border-2 border-slate-800 rounded-xl hover:border-indigo-500 hover:bg-slate-900/50 transition-all">
                 <div className="p-3 rounded-full bg-slate-900 group-hover:bg-indigo-500/10 mb-3 transition-colors">
                   <User className="w-8 h-8 text-indigo-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">Tenant</h3>
                 <p className="text-sm text-slate-400 text-center mt-1">
-                  Coming soon
+                  I have an invite code from a property owner.
                 </p>
               </button>
 
@@ -282,28 +303,55 @@ export default function Signup() {
           <form
             onSubmit={handleOrgSetup}
             className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">
-                Organization Name
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                  <Building className="w-5 h-5" />
+            {formData.role === "owner" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">
+                  Organization Name
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                    <Building className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    name="organizationName"
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                    placeholder="My Property Management Co."
+                    value={formData.organizationName}
+                    onChange={handleOrgNameChange}
+                  />
                 </div>
-                <input
-                  type="text"
-                  name="organizationName"
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                  placeholder="My Property Management Co."
-                  value={formData.organizationName}
-                  onChange={handleOrgNameChange}
-                />
+                <p className="text-xs text-slate-500">
+                  This will be the name of your management workspace.
+                </p>
               </div>
-              <p className="text-xs text-slate-500">
-                This will be the name of your management workspace.
-              </p>
-            </div>
+            )}
+
+            {formData.role === "tenant" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">
+                  Invite Code
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    name="inviteCode"
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                    placeholder="Enter invite code"
+                    value={formData.inviteCode}
+                    onChange={handleInviteCodeChange}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Your property owner should have provided this code.
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"

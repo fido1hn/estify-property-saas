@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTenant, useDeleteTenant } from '../hooks/useTenants';
-import { Tenant } from '../types';
-import { ChevronLeft, Mail, Phone, Calendar, Building2, CreditCard, Trash2, Edit2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Mail, Phone, Building2, CreditCard, Trash2, Edit2, AlertCircle } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 export const TenantDetails: React.FC = () => {
@@ -25,6 +24,7 @@ export const TenantDetails: React.FC = () => {
   if (!tenant) return null;
 
   const name = tenant.profiles?.full_name || 'Unknown';
+  const activeUnit = tenant.active_unit;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -34,7 +34,9 @@ export const TenantDetails: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
-          <p className="text-sm text-gray-500">{tenant.units?.properties?.name || 'Unassigned'} • {tenant.unit_id || 'N/A'}</p>
+          <p className="text-sm text-gray-500">
+            {activeUnit?.property_name || 'Unassigned'} • {activeUnit?.unit_number ? `Unit ${activeUnit.unit_number}` : 'N/A'}
+          </p>
         </div>
         <div className="ml-auto flex gap-3">
           <button className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500"><Edit2 size={18} /></button>
@@ -56,15 +58,13 @@ export const TenantDetails: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Phone size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">+1 (555) 123-4567</span>
+                     <span className="text-sm font-medium">{tenant.profiles?.phone_number || 'No phone on file'}</span>
                    </div>
                    <div className="flex items-center gap-3 text-gray-600">
                      <Building2 size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">{tenant.units?.properties?.name || 'Unassigned'} - {tenant.unit_id}</span>
-                   </div>
-                   <div className="flex items-center gap-3 text-gray-600">
-                     <Calendar size={18} className="text-orange-500" />
-                     <span className="text-sm font-medium">Lease ends {new Date(tenant.lease_end).toLocaleDateString()}</span>
+                     <span className="text-sm font-medium">
+                       {activeUnit?.property_name || 'Unassigned'} - {activeUnit?.unit_number ? `Unit ${activeUnit.unit_number}` : 'N/A'}
+                     </span>
                    </div>
                 </div>
                 <div className="pt-6 border-t border-gray-50">
